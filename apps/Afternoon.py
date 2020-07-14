@@ -1,9 +1,20 @@
+import dash
+import dash_table
+import dash_core_components as dcc
+import plotly.graph_objs as go
+import plotly.express as px
+import dash_html_components as html
+from dash.dependencies import Input, Output
+import plotly.express as px
 from datetime import date
+import time 
 import pandas as pd
 import numpy as np 
 from app import app
+from apps import functions as fx
 
-#definition of shifts 
+
+#shifts definition 
 morning=[('4:00','5:00'),('5:00','6:00'),('6:00','7:00'),('7:00','8:00'),
                 ('8:00','9:00'),('9:00','10:00'),('10:00','11:00'),('11:00','12:00')]
 afternoon=[('12:00','13:00'),('13:00','14:00'),('14:00','15:00'),('15:00','16:00'),
@@ -12,337 +23,7 @@ night=[('20:00','21:00'),('21:00','22:00'),('22:00','23:00'),('23:00','0:00'),
                 ('0:00','1:00'),('1:00','2:00'),('2:00','3:00'),('3:00','4:00')]
 
 
-def get_data():
-    import pandas as pd
-    import numpy as np
-    from datetime import date
-    import pyodbc
-
-    connection = pyodbc.connect('DRIVER={SQL Server};'
-
-                                'SERVER=nj01prdbidb01.intranet.biz.freshdirect.com;'
-
-                                'DATABASE=DASHBOARD;'
-
-                                'UID=DASH_READONLY;'
-
-                                'PWD=Mbers0nyon#123;'
-                                
-                                "autocommit = True")
-    query="""
-        Select 
-        distinct
-        pt.USER_ID as User_id,
-        concat(us.USER_FIRST_NAME,',',us.USER_LAST_NAME) usr,
-        pt.task_id,
-        pt.CNTR_NBR ilpn,
-        case when isNull(td.STAT_CODE,td2.STAT_CODE) = 40 then 'Pulled' 
-        when isNull(td.STAT_CODE,td2.STAT_CODE) = 99 then 'Pulled then Ctrl-G'
-        else 'Complete' end as status,
-        concat(lh0.WORK_AREA,'/',lh0.WORK_GRP) 'WA/WG',
-        pt.CREATE_DATE_TIME pulling_date_time,
-        lh0.dsp_locn Pull_location,
-        convert(date,pt.CREATE_DATE_TIME) pulling_date,
-
-        case when th.INVN_NEED_TYPE = 1 then 'INT1' 
-        when th.INVN_NEED_TYPE = 2 then 'INT2' 
-        when th.INVN_NEED_TYPE = 90 then 'INT90' 
-        end as INT_task,
-
-        CASE
-            WHEN Th.Task_Type = '11' THEN 'Chill Pallet'
-            WHEN Th.Task_Type = '12' THEN 'Freezer Pallet Replen'
-            WHEN Th.Task_Type = '13' THEN 'BTO Pallet Replen'
-            WHEN Th.Task_Type = '14' THEN 'Kitchen Pallet Replen'
-            WHEN Th.Task_Type = '15' THEN 'Ambient Pallet Replen'
-            WHEN Th.Task_Type = '70' and  Th.START_CURR_WORK_AREA NOT like 'N%' 
-                                THEN 'Ambient Case Replen'
-            WHEN Th.Task_Type = '71' and Th.START_CURR_WORK_AREA NOT like 'B%' and Th.START_CURR_WORK_AREA NOT like 'N%'
-                                    THEN 'Chill Case Replen' 
-            WHEN Th.Task_Type = '72' THEN 'Freezer Case Replen'
-            WHEN Th.Task_Type = '73' THEN 'BTO Case Replen'
-            WHEN Th.Task_Type = '74' THEN 'Kitchen Case Replen'
-            WHEN Th.Task_Type = '75' THEN 'Shuttle Case Replen'
-            WHEN Th.Task_Type = '70' and  Th.START_CURR_WORK_AREA like 'N%' 
-                                        THEN 'Supplies'
-            WHEN Th.Task_Type = '71' and (Th.START_CURR_WORK_AREA like 'B%' or Th.START_CURR_WORK_AREA like 'P%')
-                                    THEN 'Supplies'
-            WHEN Th.Task_Type = '76' THEN 'Chill MTS Replen'
-            WHEN Th.Task_Type in ('40','41') THEN 'Pick from reserve INT2'
-            WHEN Th.Task_Type = '50' THEN 'Recall INT90'
-        END AS "Task description",
-
-        --concat(td.task_id,td.CNTR_NBR) id,
-
-        CASE DATEPART(HOUR, pt.CREATE_DATE_TIME)
-            WHEN 0 THEN  '12AM'
-            WHEN 1 THEN   '01AM'
-            WHEN 2 THEN   '02AM'
-            WHEN 3 THEN   '03AM'
-            WHEN 4 THEN   '04AM'
-            WHEN 5 THEN   '05AM'
-            WHEN 6 THEN   '06AM'
-            WHEN 7 THEN   '07AM'
-            WHEN 8 THEN   '08AM'
-            WHEN 9 THEN   '09AM'
-            WHEN 10 THEN '10AM'
-            WHEN 11 THEN '11AM'
-            WHEN 12 THEN '12PM'
-            ELSE Format(DATEPART(HOUR, pt.CREATE_DATE_TIME)-12,'00') + 'PM'end as Pull_hour,
-
-
-        case 	when
-
-        CASE DATEPART(HOUR, pt.CREATE_DATE_TIME)
-            WHEN 0 THEN  '12AM'
-            WHEN 1 THEN   '01AM'
-            WHEN 2 THEN   '02AM'
-            WHEN 3 THEN   '03AM'
-            WHEN 4 THEN   '04AM'
-            WHEN 5 THEN   '05AM'
-            WHEN 6 THEN   '06AM'
-            WHEN 7 THEN   '07AM'
-            WHEN 8 THEN   '08AM'
-            WHEN 9 THEN   '09AM'
-            WHEN 10 THEN '10AM'
-            WHEN 11 THEN '11AM'
-            WHEN 12 THEN '12PM'
-            ELSE Format(DATEPART(HOUR, pt.CREATE_DATE_TIME)-12,'00') + 'PM'end
-
-            in ('04AM','05AM','06AM','07AM','08AM','09AM','10AM','11AM') then 'Morning shift'
-
-            when
-        CASE DATEPART(HOUR, pt.CREATE_DATE_TIME)
-            WHEN 0 THEN  '12AM'
-            WHEN 1 THEN   '01AM'
-            WHEN 2 THEN   '02AM'
-            WHEN 3 THEN   '03AM'
-            WHEN 4 THEN   '04AM'
-            WHEN 5 THEN   '05AM'
-            WHEN 6 THEN   '06AM'
-            WHEN 7 THEN   '07AM'
-            WHEN 8 THEN   '08AM'
-            WHEN 9 THEN   '09AM'
-            WHEN 10 THEN '10AM'
-            WHEN 11 THEN '11AM'
-            WHEN 12 THEN '12PM'
-            ELSE Format(DATEPART(HOUR, pt.CREATE_DATE_TIME)-12,'00') + 'PM'end
-
-            in ('12PM','01PM','02PM','03PM','04PM','05PM','06PM','07PM') then 'Afternoon shift'
-
-            When 
-
-        CASE DATEPART(HOUR, pt.CREATE_DATE_TIME)
-            WHEN 0 THEN  '12AM'
-            WHEN 1 THEN   '01AM'
-            WHEN 2 THEN   '02AM'
-            WHEN 3 THEN   '03AM'
-            WHEN 4 THEN   '04AM'
-            WHEN 5 THEN   '05AM'
-            WHEN 6 THEN   '06AM'
-            WHEN 7 THEN   '07AM'
-            WHEN 8 THEN   '08AM'
-            WHEN 9 THEN   '09AM'
-            WHEN 10 THEN '10AM'
-            WHEN 11 THEN '11AM'
-            WHEN 12 THEN '12PM'
-            ELSE Format(DATEPART(HOUR, pt.CREATE_DATE_TIME)-12,'00') + 'PM'end
-
-            in ('08PM','09PM','10PM','11PM','12AM','01AM','02AM','03AM') then 'Night shift'
-
-            end as Shft,
-
-        case 	when
-
-        CASE DATEPART(HOUR, pt.CREATE_DATE_TIME)
-            WHEN 0 THEN  '12AM'
-            WHEN 1 THEN   '01AM'
-            WHEN 2 THEN   '02AM'
-            WHEN 3 THEN   '03AM'
-            WHEN 4 THEN   '04AM'
-            WHEN 5 THEN   '05AM'
-            WHEN 6 THEN   '06AM'
-            WHEN 7 THEN   '07AM'
-            WHEN 8 THEN   '08AM'
-            WHEN 9 THEN   '09AM'
-            WHEN 10 THEN '10AM'
-            WHEN 11 THEN '11AM'
-            WHEN 12 THEN '12PM'
-            ELSE Format(DATEPART(HOUR, pt.CREATE_DATE_TIME)-12,'00') + 'PM'end
-
-            in ('04AM','05AM','06AM','07AM','08AM','09AM','10AM','11AM') then convert(date,pt.CREATE_DATE_TIME)
-
-            when
-        CASE DATEPART(HOUR, pt.CREATE_DATE_TIME)
-            WHEN 0 THEN  '12AM'
-            WHEN 1 THEN   '01AM'
-            WHEN 2 THEN   '02AM'
-            WHEN 3 THEN   '03AM'
-            WHEN 4 THEN   '04AM'
-            WHEN 5 THEN   '05AM'
-            WHEN 6 THEN   '06AM'
-            WHEN 7 THEN   '07AM'
-            WHEN 8 THEN   '08AM'
-            WHEN 9 THEN   '09AM'
-            WHEN 10 THEN '10AM'
-            WHEN 11 THEN '11AM'
-            WHEN 12 THEN '12PM'
-            ELSE Format(DATEPART(HOUR, pt.CREATE_DATE_TIME)-12,'00') + 'PM'end
-
-            in ('12PM','01PM','02PM','03PM','04PM','05PM','06PM','07PM') then convert(date,pt.CREATE_DATE_TIME+1)
-
-            When 
-
-        CASE DATEPART(HOUR, pt.CREATE_DATE_TIME)
-            WHEN 0 THEN  '12AM'
-            WHEN 1 THEN   '01AM'
-            WHEN 2 THEN   '02AM'
-            WHEN 3 THEN   '03AM'
-            WHEN 4 THEN   '04AM'
-            WHEN 5 THEN   '05AM'
-            WHEN 6 THEN   '06AM'
-            WHEN 7 THEN   '07AM'
-            WHEN 8 THEN   '08AM'
-            WHEN 9 THEN   '09AM'
-            WHEN 10 THEN '10AM'
-            WHEN 11 THEN '11AM'
-            WHEN 12 THEN '12PM'
-            ELSE Format(DATEPART(HOUR, pt.CREATE_DATE_TIME)-12,'00') + 'PM'end
-
-            in ('08PM','09PM','10PM','11PM') then convert(date,pt.CREATE_DATE_TIME+1)
-
-            When 
-
-        CASE DATEPART(HOUR, pt.CREATE_DATE_TIME)
-            WHEN 0 THEN  '12AM'
-            WHEN 1 THEN   '01AM'
-            WHEN 2 THEN   '02AM'
-            WHEN 3 THEN   '03AM'
-            WHEN 4 THEN   '04AM'
-            WHEN 5 THEN   '05AM'
-            WHEN 6 THEN   '06AM'
-            WHEN 7 THEN   '07AM'
-            WHEN 8 THEN   '08AM'
-            WHEN 9 THEN   '09AM'
-            WHEN 10 THEN '10AM'
-            WHEN 11 THEN '11AM'
-            WHEN 12 THEN '12PM'
-            ELSE Format(DATEPART(HOUR, pt.CREATE_DATE_TIME)-12,'00') + 'PM'end
-
-            in ('12AM','01AM','02AM','03AM') then convert(date,pt.CREATE_DATE_TIME)
-
-            end as Delivery
-                        
-        from PROD_TRKG_TRAN_WMS pt
-
-        left outer join (select distinct th.task_id,th.Task_type,th.INVN_NEED_TYPE,Th.START_CURR_WORK_AREA from TASK_HDR_WMS th where th.INVN_NEED_TYPE in (1,2,90)
-        and th.CREATE_DATE_TIME > cast(getdate()-6 as date)
-        )th
-        on th.TASK_ID = pt.TASK_ID
-
-        left outer join (select distinct pt.CNTR_NBR,pt.task_id,concat(pt.from_locn,pt.CNTR_NBR)id,pt.CREATE_DATE_TIME from PROD_TRKG_TRAN_WMS pt
-        inner join (
-        select  distinct min(pt.CREATE_DATE_TIME)CREATE_DATE_TIME,concat(pt.from_locn,pt.CNTR_NBR)id from PROD_TRKG_TRAN_WMS pt where
-        convert (date,pt.CREATE_DATE_TIME) > cast(getdate()-5 as date) 
-        and pt.TRAN_TYPE = 300 and pt.TRAN_CODE = '005' and pt.TASK_ID is not null
-        group by concat(pt.from_locn,pt.CNTR_NBR)
-        )ptn on ptn.id = concat(pt.FROM_LOCN,pt.cntr_nbr) and ptn.CREATE_DATE_TIME = pt.CREATE_DATE_TIME
-        where convert (date,pt.CREATE_DATE_TIME) > cast(getdate()-5 as date) and pt.TRAN_TYPE = 300 and pt.TASK_ID is not null 
-        and pt.TRAN_CODE = '005'
-        )ptn
-        on ptn.id = concat(pt.FROM_LOCN,pt.cntr_nbr)
-        and ptn.CREATE_DATE_TIME > pt.CREATE_DATE_TIME
-
-        left outer join (select CONCAT(td.task_id,td.CNTR_NBR)id, td.TASK_ID, td.STAT_CODE from TASK_DTL_WMS td where td.MOD_DATE_TIME > cast(getdate()-6 as date))td
-        on td.id = concat(ptn.TASK_ID,ptn.cntr_nbr)
-
-        left outer join (select CONCAT(td.task_id,td.CNTR_NBR)id, td.TASK_ID, td.STAT_CODE from TASK_DTL_WMS td where td.MOD_DATE_TIME > cast(getdate()-6 as date))td2
-        on td2.id = concat(pt.TASK_ID,pt.cntr_nbr)
-
-        left outer join LOCN_HDR_WMS lh0
-        on lh0.LOCN_ID = pt.FROM_LOCN
-
-        left outer join ITEM_MASTER_WMS im
-        on im.ITEM_ID = pt.ITEM_ID
-
-
-        left outer join ucl_user_wms us
-        on us.USER_NAME = pt.USER_ID
-
-        where 
-        convert (date,pt.CREATE_DATE_TIME) > cast(getdate()-6 as date)
-        and pt.TRAN_TYPE = 300 and pt.TRAN_CODE = '006' and pt.TASK_ID is not null
-        and th.Task_type not in (00,01,02,03,04,05,06,07,08)
-        and (lh0.ZONE in ('A1','A2','A3','A4','A5','A6','A7'))
-    """
-
-    # Setting up a cursor.
-    cursor = connection.cursor()
-    # fetch data function.
-    data = cursor.execute(query).fetchall()
-    connection.close()                           
-
-    reference=['User_id','usr','task_id','ilpn','status','WA/WG','pulling_date_time','Pull_location','pulling_date','INT_task','Task description','Pull_hour','Shft','Delivery']
-    df=pd.DataFrame(columns=reference,index=np.arange(len(data)))
-    for item in range(len(reference)):
-        for row in range(len(data)):
-            df[reference[item]][row]=data[row][item]    
-    return df
-def get_rates(shift,period,date_):
-    #pull the data from the database
-    data=get_data()
-
-    from datetime import date
-    import pandas as pd
-    
-    def get_users(shift,date_):
-            temp=data[data['Shft']==shift]
-            temp=temp.sort_values(by='pulling_date_time')
-            temp=temp.set_index('pulling_date_time')
-            g=temp.groupby(temp.index.floor('d'))
-            my_day = pd.Timestamp(date_)
-            df_slice = g.get_group(date_)   
-            return list(df_slice.usr.unique())
-
-    def get_list(start,finish,shift,date_):
-            morning=data[data['Shft']==shift]
-            morning=morning.sort_values(by='pulling_date_time')
-            morning=morning.set_index('pulling_date_time')
-            g=morning.groupby(morning.index.floor('d'))
-            my_day = pd.Timestamp(date_)
-            df_slice = g.get_group(my_day)      
-            first_hour=df_slice.between_time(start,finish)
-            operators=first_hour['usr'].unique()
-            dic={employee: first_hour[first_hour['usr']==employee]['ilpn'].size for employee in operators}
-            return dic
-
-    def built_dataframe(shift,period,date_):
-            list_=[s+'-'+e for s,e in period]
-            list_.insert(0,'Name')
-            users=get_users(shift,date_)
-            df=pd.DataFrame(columns=list_, index=pd.Series(users))
-            starting=[s for s,e in period]
-            ending=[e for s,e in period]
-            def dataframe(s,e,shift):
-                for name,rate in get_list(s,e,shift,date_).items():
-                    df[s+'-'+e][name]=rate
-            for s,e in period:
-                dataframe(s,e,shift)
-            return df 
-
-    df=built_dataframe(shift,period,date_)
-    df['Name']=df.index
-    df=df.fillna(0)
-    df2=df.T.drop(['Name'])
-    df['Rate']=df2[df2>20].mean(axis=0)
-    df=df.sort_values('Rate',ascending=False)
-    df['Rate'] = df['Rate'].map('{:,.2f}'.format)
-    df.to_excel(shift+'.xlsx')
-
-# get_rates('Afternoon shift',afternoon,date.today())
-
 reference='Afternoon shift'       
-
 def main_table(shift=reference+'.xlsx'):
         df=pd.read_excel(shift)
         df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
@@ -365,10 +46,10 @@ def general_indicators():
         return (expected,real)
     
     #results table
-results_table=pd.DataFrame(columns=['Expected_Results','Net Results','Difference'],index=np.arange(1))
-results_table['Expected_Results']=general_indicators()[0]
-results_table['Net Results']=general_indicators()[1]
-results_table['Difference']=general_indicators()[1]-general_indicators()[0]
+a_results_table=pd.DataFrame(columns=['Expected Results','Net Results','Difference'],index=np.arange(1))
+a_results_table['Expected Results']=general_indicators()[0]
+a_results_table['Net Results']=general_indicators()[1]
+a_results_table['Difference']=general_indicators()[1]-general_indicators()[0]
   
 #this is only to show the table and the averga part of the graph
 main=main_table()
@@ -376,15 +57,6 @@ main.insert(loc=0,column='Reference', value=main.index)
 main['Rate']['Total']=main.loc['Total'][1:-1][main.loc['Total'][1:-1]>0].mean()
 main['Rate'] = main['Rate'].map('{:,.2f}'.format)
         
-#Developing app
-import dash
-import dash_table
-import dash_core_components as dcc
-import plotly.graph_objs as go
-import plotly.express as px
-import dash_html_components as html
-from dash.dependencies import Input, Output
-import plotly.express as px
 
 df=main_table()
 df2=df.T.iloc[:-1,:]
@@ -394,11 +66,17 @@ fig=px.line(df2, x='Hour', y='Total', title='Total Performance curve')
 fig.add_trace(go.Scatter(x=df2.index, y=[float(main['Rate'].loc['Total']) for i in df2.index],
                     mode='lines',
                     name="Average {:,.2f} ilpns/hour".format(float(main['Rate'].loc['Total']))))
-def time():
+def time_():    
     import datetime
-    now = datetime.datetime.now()    
-    return 'Last update '+now.strftime("%H:%M %d/%m")
-now=time()
+    hour=int(time.ctime()[11:13])
+    if hour>=12 and hour<=20:    
+        now = datetime.datetime.now()    
+        return 'Last update '+now.strftime("%H:%M %m-%d")
+    else:
+        today = datetime.date.today()
+        yesterday = today - datetime.timedelta(days=1)
+        return f'Last update 20:00 {str(yesterday)[5:]}'
+
 
 layout =html.Div(
     [
@@ -455,8 +133,8 @@ layout =html.Div(
                                             ]
                                         ),
                 dash_table.DataTable(   id='results_table',
-                                        columns=[{"name": i, "id": i} for i in results_table.columns],
-                                        data=results_table.to_dict('records'),
+                                        columns=[{"name": i, "id": i} for i in a_results_table.columns],
+                                        data=a_results_table.to_dict('records'),
                                         style_cell={'textAlign': 'center','whiteSpace': 'normal', 'textOverflow': 'ellipsis'}
                                         )
                     ],style={'width':'70%'}),
@@ -517,7 +195,9 @@ def update_graph(name_list,interval_graph):
               [Input('interval-main_table', 'n_intervals')])
     
 def update_main_table(n_intervals):
-        # get_rates(reference,afternoon,date.today())
+        hour=int(time.ctime()[11:13])
+        if hour>=12 and hour<=21:  
+            fx.get_rates(reference,afternoon,date.today())
         dff=main_table()
         dff.insert(loc=0,column='Reference', value=dff.index)
         dff['Rate']['Total']=dff.loc['Total'][1:-1][dff.loc['Total'][1:-1]>0].mean()
@@ -530,14 +210,14 @@ def update_main_table(n_intervals):
 @app.callback(Output('time_update', 'children'),
               [Input('interval-main_table', 'n_intervals')])
 def update_time(n_intervals):
-        return time()
+        return time_()
 
 @app.callback(Output('results_table', 'data'),
               [Input('interval-results_table', 'n_intervals')])
     
 def update_results_table(n_intervals):
-        results_table['Expected_Results']=general_indicators()[0]
-        results_table['Net Results']=general_indicators()[1]
-        results_table['Difference']=general_indicators()[1]-general_indicators()[0]
-        data=results_table.to_dict('records')
+        a_results_table['Expected_Results']=general_indicators()[0]
+        a_results_table['Net Results']=general_indicators()[1]
+        a_results_table['Difference']=general_indicators()[1]-general_indicators()[0]
+        data=a_results_table.to_dict('records')
         return data

@@ -1,6 +1,15 @@
 from datetime import date
+import time 
 import pandas as pd
 import numpy as np 
+import dash
+import dash_table
+import dash_core_components as dcc
+import plotly.graph_objs as go
+import plotly.express as px
+import dash_html_components as html
+from dash.dependencies import Input, Output
+import plotly.express as px
 from app import app
 
 #definition of shifts 
@@ -360,10 +369,10 @@ def general_indicators():
     
    
 
-m_results_table=pd.DataFrame(columns=['Expected_Results','Net Results','Difference'],index=np.arange(1))
-m_results_table['Expected_Results']=general_indicators()[0]
-m_results_table['Net Results']=general_indicators()[1]
-m_results_table['Difference']=general_indicators()[1]-general_indicators()[0]
+n_results_table=pd.DataFrame(columns=['Expected Results','Net Results','Difference'],index=np.arange(1))
+n_results_table['Expected Results']=general_indicators()[0]
+n_results_table['Net Results']=general_indicators()[1]
+n_results_table['Difference']=general_indicators()[1]-general_indicators()[0]
   
 #this is only to show the table and the averga part of the graph
 m_main=main_table()
@@ -371,17 +380,7 @@ m_main.insert(loc=0,column='Reference', value=m_main.index)
 m_main['Rate']['Total']=m_main.loc['Total'][1:-1][m_main.loc['Total'][1:-1]>0].mean()
 m_main['Rate'] = m_main['Rate'].map('{:,.2f}'.format)
         
-#Developing app
-import dash
-import dash_table
-import dash_core_components as dcc
-import plotly.graph_objs as go
-import plotly.express as px
-import dash_html_components as html
-from dash.dependencies import Input, Output
-import plotly.express as px
 
-#app = dash.Dash(__name__)
 df=main_table()
 df2=df.T.iloc[:-1,:]
 df2=df2[df2['Total']>0]
@@ -390,11 +389,17 @@ fig=px.line(df2, x='Hour', y='Total', title='Total Performance curve')
 fig.add_trace(go.Scatter(x=df2.index, y=[float(m_main['Rate'].loc['Total']) for i in df2.index],
                     mode='lines',
                     name="Average {:,.2f} ilpns/hour".format(float(m_main['Rate'].loc['Total']))))
-def time():
+def time_():
     import datetime
-    now = datetime.datetime.now()    
-    return 'Last update '+now.strftime("%H:%M %d/%m")
-now=time()
+    hour=int(time.ctime()[11:13])
+    if hour>=20 and hour <4 :
+        now = datetime.datetime.now()    
+        return 'Last update '+now.strftime("%H:%M %m-%d")
+    else:
+        today = datetime.date.today()
+        yesterday = today - datetime.timedelta(days=1)
+        return f'Last update 4:00 {str(today)[5:]}'
+
 
 layout =html.Div(
     [
@@ -451,8 +456,8 @@ layout =html.Div(
                                             ]
                                         ),
                 dash_table.DataTable(   id='results_table',
-                                        columns=[{"name": i, "id": i} for i in m_results_table.columns],
-                                        data=m_results_table.to_dict('records'),
+                                        columns=[{"name": i, "id": i} for i in n_results_table.columns],
+                                        data=n_results_table.to_dict('records'),
                                         style_cell={'textAlign': 'center','whiteSpace': 'normal', 'textOverflow': 'ellipsis'}
                                         )
                     ],style={'width':'70%'}),
@@ -513,7 +518,9 @@ def update_graph(name_list,interval_graph):
               [Input(reference+'interval-main_table', reference+'n_intervals')])
     
 def update_main_table(n_intervals):
-        # get_rates(reference,night,date.today())
+        hour=int(time.ctime()[11:13])
+        if hour>20 and hour <5:
+            get_rates(reference,night,date.today())
         dff=main_table()
         dff.insert(loc=0,column='Reference', value=dff.index)
         dff['Rate']['Total']=dff.loc['Total'][1:-1][dff.loc['Total'][1:-1]>0].mean()
@@ -525,15 +532,15 @@ def update_main_table(n_intervals):
 @app.callback(Output(reference+'time_update', 'children'),
               [Input(reference+'interval-main_table', 'n_intervals')])
 def update_time(n_intervals):
-        return time()
+        return time_()
 
 @app.callback(Output(reference+'results_table', 'data'),
               [Input(reference+'interval-results_table', reference+'n_intervals')])
     
 def update_results_table(n_intervals):
-        results_table['Expected_Results']=general_indicators()[0]
-        results_table['Net Results']=general_indicators()[1]
-        results_table['Difference']=general_indicators()[1]-general_indicators()[0]
-        data=results_table.to_dict('records')
+        n_results_table['Expected_Results']=general_indicators()[0]
+        n_results_table['Net Results']=general_indicators()[1]
+        n_results_table['Difference']=general_indicators()[1]-general_indicators()[0]
+        data=n_results_table.to_dict('records')
         return data
 

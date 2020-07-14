@@ -1,20 +1,12 @@
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
+
 from app import app
-from apps import Morning, Afternoon, Night
+from apps import Morning, Afternoon, Night, home
 
 
-#definition of shifts 
-morning=[('4:00','5:00'),('5:00','6:00'),('6:00','7:00'),('7:00','8:00'),
-                ('8:00','9:00'),('9:00','10:00'),('10:00','11:00'),('11:00','12:00')]
-afternoon=[('12:00','13:00'),('13:00','14:00'),('14:00','15:00'),('15:00','16:00'),
-                ('16:00','17:00'),('17:00','18:00'),('18:00','19:00'),('19:00','20:00')]
-night=[('20:00','21:00'),('21:00','22:00'),('22:00','23:00'),('23:00','0:00'),
-                ('0:00','1:00'),('1:00','2:00'),('2:00','3:00'),('3:00','4:00')]
-
-
-app.layout = html.Div([html.H3([dcc.Link('Morning /', href='/apps/Morning'),dcc.Link(' Afternoon /', href='/apps/Afternoon'),dcc.Link(' Night /', href='/apps/Night')],
+app.layout = html.Div([html.H1(dcc.Link('HOME', href='/apps/home'),style={'text-align':'center'}),html.H2([dcc.Link('Morning /', href='/apps/Morning'),dcc.Link(' Afternoon /', href='/apps/Afternoon'),dcc.Link(' Night /', href='/apps/Night')],
 style={'text-align':'center'}),
     dcc.Location(id='url', refresh=False),
     html.Div(id='page-content')
@@ -29,8 +21,10 @@ def display_page(pathname):
         return Afternoon.layout
     elif pathname == '/apps/Night':
         return Night.layout
-    else:
+    elif pathname == '/apps/home':
+        return home.layout
+    else: 
         return 'To be continued'
 
 if __name__ == '__main__':
-    app.run_server(debug=False,port=8000,host='0.0.0.0')
+    app.run_server(debug=True)
