@@ -1,3 +1,4 @@
+#reads all the information form the database and stores the detail file into database.xslx
 def get_data():
     import pandas as pd
     import numpy as np
@@ -261,7 +262,6 @@ def get_data():
         and th.Task_type not in (00,01,02,03,04,05,06,07,08)
         and (lh0.ZONE in ('A1','A2','A3','A4','A5','A6','A7'))
     """
-
     # Setting up a cursor.
     cursor = connection.cursor()
     # fetch data function.
@@ -273,10 +273,16 @@ def get_data():
     for item in range(len(reference)):
         for row in range(len(data)):
             df[reference[item]][row]=data[row][item]
-    df.to_excel('database.xlsx')
+
+    out_path='archive\database.xlsx'
+    writer = pd.ExcelWriter(out_path , engine='xlsxwriter')
+    df.to_excel(writer, sheet_name='Sheet1')
+    writer.save()
     return df
 
+#recibes the name of the shift, definitiion of shifts, date and raw data(from the function get_data()
 def get_rates(shift,period,date_,data):
+    try:
         from datetime import date
         import datetime
         import pandas as pd
@@ -323,9 +329,12 @@ def get_rates(shift,period,date_,data):
         df['Rate']=df2[df2>20].mean(axis=0)
         df=df.sort_values('Rate',ascending=False)
         df['Rate'] = df['Rate'].map('{:,.2f}'.format)
-        df.to_excel(shift+'.xlsx')
-        # return df 
+        string=str(date_)[5:10]+shift+'.xlsx'
+        df.to_excel('archive/'+string)
+    except:
+        pass
 
+#smalls function to reads the date from the users (i might not need this, maybe I can read it from the input itself)
 def date_reader():
     import pandas as pd
     import pickle
@@ -333,4 +342,135 @@ def date_reader():
     obj = pickle.load(f)
     f.close()
     return pd.Timestamp(obj)
+
+#it should let you know when was the last time the table was updated 
+def update_time():
+    import datetime
+    import time
+    hour=int(time.ctime()[11:13])
+    if hour>=4 and hour<=12:
+        now = datetime.datetime.now()    
+        return 'Last update '+now.strftime("%H:%M %m-%d")
+    else:
+        today = datetime.date.today()
+        yesterday = today - datetime.timedelta(days=1)
+        return f'Last update 12:00 {str(yesterday)[5:]}'
+
+# file_name= day-monthMorning shift.xslx (07-15Morning shift)
+
+#this is a auxiliar fucntions used to rearange information form the database
+def main_table(file_name : str):
+    import pandas as pd 
+    df=pd.read_excel('archive/'+file_name)
+    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+    df=df.set_index('Name')
+    df.loc['Total',:]=df.sum(axis=0)
+    return df
+#it gives you the resutls table (a summary of the numbers of the day)
+def get_results_table(file_name: str,df): #dataframe
+    import pandas as pd
+    import numpy as np
+    def general_indicators(file_name: str,df):
+            df2=df.iloc[:-1,:-1]
+            temp=df2[df2>20]
+            results=pd.DataFrame(index=np.arange(len(temp.count())))
+            results['Hour']=temp.count().index
+            results['Headcount']=temp.count().values
+            results['Exp_Rate/person']=np.where((results['Hour']=='8:00-9:00') | (results['Hour']=='9:00-10:00'),75,100)
+            results['Exp_Rate']=results['Exp_Rate/person']*results['Headcount']
+            expected,real=results['Exp_Rate'].sum(axis=0),df2.sum(axis=0).sum()
+            return (expected,real)
+    expected,net=general_indicators(file_name,df)
+    results_table=pd.DataFrame(columns=['Expected Results','Net Results','Difference'],index=np.arange(1))
+    results_table['Expected Results']=expected
+    results_table['Net Results']=net
+    results_table['Difference']=net-expected
+    return results_table
+#returns main and aux tables, both used in the dashborad of each shift (main is the one that is direclty displayed)
+def get_main_aux(file_name):
+    import pandas as pd
+    def main_table(file_name : str):
+            df=pd.read_excel('archive/'+file_name)
+            df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+            df=df.set_index('Name')
+            df.loc['Total',:]=df.sum(axis=0)
+            return df
+    main=main_table(file_name)
+    main.insert(loc=0,column='Reference', value=main.index)
+    main['Rate']['Total']=main.loc['Total'][1:-1][main.loc['Total'][1:-1]>0].mean()
+    main['Rate'] = main['Rate'].map('{:,.2f}'.format)
+    df=main_table(file_name)
+    aux=df.T.iloc[:-1,:]
+    aux=aux[aux['Total']>0]
+    aux['Hour']=aux.index
+    return (main,aux)
+ 
+def summary(n_shift,m_shift,a_shift,date):
+    import time 
+    import pandas as pd 
+    hour=int(time.ctime()[11:13])
+    u_input_day=str(date)[8:10]
+    today_=time.ctime()[8:10]
     
+    def get_summary(sum_):
+        total=pd.DataFrame(columns=['Expected Results','Net Results','Difference'], index=pd.Series(range(4)))
+        total
+        total.iloc[0]=n_shift.iloc[0]
+        total.iloc[1]=m_shift.iloc[0]
+        total.iloc[2]=a_shift.iloc[0]
+        reference=['Night','Morning','Afternoon','Total']
+        total.insert(0,'Reference',reference)
+        temp_=['Total']
+        for column in ['Expected Results','Net Results','Difference']:
+            temp_.append(sum_.iloc[0][column])
+        total.iloc[3]=temp_
+        return total
+
+    if today_==u_input_day:
+        if hour<=4:
+            sum_=n_shift
+            total=get_summary(sum_)
+        if hour<=13:
+            sum_=n_shift+m_shift
+            total=get_summary(sum_)
+        if hour>13 and hour<=20:
+            sum_=n_shift+m_shift+a_shift
+            total=get_summary(sum_)
+        return total
+    else:
+        sum_=n_shift+m_shift+a_shift
+        total=get_summary(sum_)
+        return total
+
+#it should be ran at the beginning to ensure the rest of the things work
+#it ensure the existence of the 3 previous days, does not get the current day. 
+def initializer(finish,start,decrement=-1):
+    import pandas as pd
+    import datetime
+
+    morning=[('4:00','5:00'),('5:00','6:00'),('6:00','7:00'),('7:00','8:00'),
+                    ('8:00','9:00'),('9:00','10:00'),('10:00','11:00'),('11:00','12:00')]
+    afternoon=[('12:00','13:00'),('13:00','14:00'),('14:00','15:00'),('15:00','16:00'),
+                    ('16:00','17:00'),('17:00','18:00'),('18:00','19:00'),('19:00','20:00')]
+    night=[('20:00','21:00'),('21:00','22:00'),('22:00','23:00'),('23:00','0:00'),
+                    ('0:00','1:00'),('1:00','2:00'),('2:00','3:00'),('3:00','4:00')]
+    
+    shifts=[('Night shift',night),('Morning shift',morning),('Afternoon shift',afternoon)]
+    
+    today=datetime.date.today()
+    try:
+        for i in range(finish,start,decrement):
+            for shift in shifts: 
+                date_=today-datetime.timedelta(days=i)
+                date_=pd.Timestamp(date_) 
+                from apps import functions as fx
+                data=pd.read_excel('archive/database.xlsx')
+                fx.get_rates(shift[0],shift[1],pd.Timestamp(date_),data)
+    except:
+        yesterday=date_-datetime.timedelta(days=1)
+        file_name=str(yesterday)[5:10]+shift[0]+'.xlsx'
+        df=pd.read_excel('archive/'+file_name)
+        aux=pd.DataFrame(columns=df.columns,index=df.index)
+        aux['Name']=df['Name']
+        file_name=str(date_)[5:10]+shift[0]+'.xlsx'
+        aux.to_excel('archive/'+file_name)

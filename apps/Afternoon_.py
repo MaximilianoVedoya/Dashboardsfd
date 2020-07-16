@@ -25,14 +25,14 @@ night=[('20:00','21:00'),('21:00','22:00'),('22:00','23:00'),('23:00','0:00'),
 
 
 #reference is used infront of every single id of each one of the elements of the layout, to avoid duplicate callbacks
-reference='Night shift'
+reference='Afternoon shift'
 #refreshing time establishes the amount of time by each callback
 refreshing_time=1*60*1000 #millisecods
 
 
 input_day=str(fx.date_reader())[5:10]
 data=pd.read_excel('archive/database.xlsx')
-fx.get_rates(reference,night,fx.date_reader(),data)
+fx.get_rates(reference,morning,fx.date_reader(),data)
 file_name=str(fx.date_reader())[5:10]+reference+'.xlsx'
 
 
@@ -98,7 +98,7 @@ layout =html.Div(
                                                 } 
                                             ]
                                         ),
-                dash_table.DataTable(   id=reference+'results_table',
+                dash_table.DataTable(   id='results_table',
                                         columns=[{"name": i, "id": i} for i in results_table.columns],
                                         data=results_table.to_dict('records'),
                                         style_cell={'textAlign': 'center','whiteSpace': 'normal', 'textOverflow': 'ellipsis'}
@@ -147,10 +147,21 @@ def update_graph(name_list,interval_graph):
             
    
 @app.callback(Output(reference+'main_table', 'data'),
-              [Input(reference+'interval-main_table', 'n_intervals')])
+              [Input(reference+'interval-main_table', reference+'n_intervals')])
     
 def update_main_table(n_intervals):
-        file_name=str(fx.date_reader())[5:10]+reference+'.xlsx'
+        # hour=int(time.ctime()[11:13])
+        # u_input_day=str(fx.date_reader())[8:10]
+        # today_=time.ctime()[8:10]
+        # if hour>=4 and hour<=13 and today_==u_input_day:
+        #     data=pd.read_excel('database.xlsx')
+        #     fx.get_rates(reference,morning,fx.date_reader(),data)
+        # input_day=str(fx.date_reader())[5:10]
+        # dff=main_table(input_day+reference+'.xlsx')
+        # dff.insert(loc=0,column='Reference', value=dff.index)
+        # dff['Rate']['Total']=dff.loc['Total'][1:-1][dff.loc['Total'][1:-1]>0].mean()
+        # dff['Rate'] = dff['Rate'].map('{:,.2f}'.format)
+        # dff.fillna(0)
         main=fx.get_main_aux(file_name)[0]
         data=main.to_dict('records')
         return data
@@ -161,19 +172,28 @@ def update_time(n_intervals):
         return fx.update_time()
 
 @app.callback(Output(reference+'results_table', 'data'),
-              [Input(reference+'interval-results_table', 'n_intervals')])
+              [Input(reference+'interval-results_table', reference+'n_intervals')])
     
 def update_results_table(n_intervals):
-    file_name=str(fx.date_reader())[5:10]+reference+'.xlsx'
+    # input_day=str(fx.date_reader())[5:10]
+    # m_results_table['Expected_Results']=general_indicators(input_day+reference+'.xlsx')[0]
+    # m_results_table['Net Results']=general_indicators(input_day+reference+'.xlsx')[1]
+    # m_results_table['Difference']=general_indicators(input_day+reference+'.xlsx')[1]-general_indicators(input_day+reference+'.xlsx')[0]
     df=fx.main_table(file_name)
     results_table=fx.get_results_table(file_name,df)
     data=results_table.to_dict('records')
     return data
 
 
+# @app.callback(Output(reference+'main_table', 'data'),
+#     [Input(reference+'date-picker', 'date')])
 
-
-
-
-
+# def update_database(date):
+#     data=pd.read_excel('database.xlsx')
+#     fx.get_rates('Morning shift',morning,date,data)
+#     file_name=str(date)[5:10]+'Morning shift'+'.xlsx'
+#     df=fx.main_table(file_name)
+#     m_shift=fx.get_results_table(file_name,df)
+#     data=m_shift.to_dict('records')
+#     return data
 

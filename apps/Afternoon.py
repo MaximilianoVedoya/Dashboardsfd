@@ -1,3 +1,8 @@
+from datetime import date
+import datetime
+import time 
+import pandas as pd
+import numpy as np 
 import dash
 import dash_table
 import dash_core_components as dcc
@@ -6,15 +11,11 @@ import plotly.express as px
 import dash_html_components as html
 from dash.dependencies import Input, Output
 import plotly.express as px
-from datetime import date
-import time 
-import pandas as pd
-import numpy as np 
 from app import app
 from apps import functions as fx
 
 
-#shifts definition 
+#shifts definition
 morning=[('4:00','5:00'),('5:00','6:00'),('6:00','7:00'),('7:00','8:00'),
                 ('8:00','9:00'),('9:00','10:00'),('10:00','11:00'),('11:00','12:00')]
 afternoon=[('12:00','13:00'),('13:00','14:00'),('14:00','15:00'),('15:00','16:00'),
@@ -23,67 +24,32 @@ night=[('20:00','21:00'),('21:00','22:00'),('22:00','23:00'),('23:00','0:00'),
                 ('0:00','1:00'),('1:00','2:00'),('2:00','3:00'),('3:00','4:00')]
 
 
-reference='Afternoon shift'       
-def main_table(shift=reference+'.xlsx'):
-        df=pd.read_excel(shift)
-        df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-        df=df.set_index('Name')
-        df.loc['Total',:]=df.sum(axis=0)
-        return df
-    
-df=main_table()
-    
-def general_indicators():
-        df=main_table()
-        df2=df.iloc[:-1,:-1]
-        temp=df2[df2>20]
-        results=pd.DataFrame(index=np.arange(len(temp.count())))
-        results['Hour']=temp.count().index
-        results['Headcount']=temp.count().values
-        results['Exp_Rate/person']=np.where((results['Hour']=='8:00-9:00') | (results['Hour']=='9:00-10:00'),75,100)
-        results['Exp_Rate']=results['Exp_Rate/person']*results['Headcount']
-        expected,real=results['Exp_Rate'].sum(axis=0),df2.sum(axis=0).sum()
-        return (expected,real)
-    
-    #results table
-a_results_table=pd.DataFrame(columns=['Expected Results','Net Results','Difference'],index=np.arange(1))
-a_results_table['Expected Results']=general_indicators()[0]
-a_results_table['Net Results']=general_indicators()[1]
-a_results_table['Difference']=general_indicators()[1]-general_indicators()[0]
-  
-#this is only to show the table and the averga part of the graph
-main=main_table()
-main.insert(loc=0,column='Reference', value=main.index)
-main['Rate']['Total']=main.loc['Total'][1:-1][main.loc['Total'][1:-1]>0].mean()
-main['Rate'] = main['Rate'].map('{:,.2f}'.format)
-        
+#reference is used infront of every single id of each one of the elements of the layout, to avoid duplicate callbacks
+reference='Afternoon shift'
+#refreshing time establishes the amount of time by each callback
+refreshing_time=1*60*1000 #millisecods
 
-df=main_table()
-df2=df.T.iloc[:-1,:]
-df2=df2[df2['Total']>0]
-df2['Hour']=df2.index
-fig=px.line(df2, x='Hour', y='Total', title='Total Performance curve')
-fig.add_trace(go.Scatter(x=df2.index, y=[float(main['Rate'].loc['Total']) for i in df2.index],
-                    mode='lines',
-                    name="Average {:,.2f} ilpns/hour".format(float(main['Rate'].loc['Total']))))
-def time_():    
-    import datetime
-    hour=int(time.ctime()[11:13])
-    if hour>=12 and hour<=20:    
-        now = datetime.datetime.now()    
-        return 'Last update '+now.strftime("%H:%M %m-%d")
-    else:
-        today = datetime.date.today()
-        yesterday = today - datetime.timedelta(days=1)
-        return f'Last update 20:00 {str(yesterday)[5:]}'
 
+input_day=str(fx.date_reader())[5:10]
+data=pd.read_excel('archive/database.xlsx')
+fx.get_rates(reference,afternoon,fx.date_reader(),data)
+file_name=str(fx.date_reader())[5:10]+reference+'.xlsx'
+
+
+main,aux=fx.get_main_aux(file_name)
+df=fx.main_table(file_name)
+results_table=fx.get_results_table(file_name,df)
+
+fig=px.line(aux, x='Hour', y='Total', title='Total Performance curve')
+fig.add_trace(go.Scatter(x=aux.index, y=[float(main['Rate'].loc['Total']) for i in aux.index],
+                        mode='lines',
+                        name="Average {:,.2f} ilpns/hour".format(float(main['Rate'].loc['Total']))))
+ 
 
 layout =html.Div(
-    [
-        html.H1('Pulling Ambient '+reference,style={'float': 'center'}),
-        html.H2(id='time_update',children=''),
-        html.Div([dash_table.DataTable(
-                                        id='main_table',
+    [   html.H1('Pulling Ambient '+reference,style={'float': 'center'}),
+        html.H2(id=reference+'time_update',children=''),
+        html.Div([dash_table.DataTable( id=reference+'main_table',
                                         columns=[{"name": i, "id": i} for i in main.columns],
                                         data=main.to_dict('records'),
                                         editable=False,
@@ -132,92 +98,78 @@ layout =html.Div(
                                                 } 
                                             ]
                                         ),
-                dash_table.DataTable(   id='results_table',
-                                        columns=[{"name": i, "id": i} for i in a_results_table.columns],
-                                        data=a_results_table.to_dict('records'),
+                dash_table.DataTable(   id=reference+'results_table',
+                                        columns=[{"name": i, "id": i} for i in results_table.columns],
+                                        data=results_table.to_dict('records'),
                                         style_cell={'textAlign': 'center','whiteSpace': 'normal', 'textOverflow': 'ellipsis'}
                                         )
                     ],style={'width':'70%'}),
-        html.Div(dcc.Dropdown(
-                    id='name_list',
-                    options=[{'label': i, 'value': i} for i in df.index],
-                    value='Pull_Rates',
-                    placeholder='Select Operator',
-                    searchable=False,
-                    multi=False
-                ),style={'width': '28%', 'float': 'center', 'display': 'inline-block'}),
-        html.Div(dcc.Graph(id='rates_graph',figure=fig,style={'width': '65%'})),
+        html.Div(dcc.Dropdown(id=reference+'name_list',
+                            options=[{'label': i, 'value': i} for i in df.index],
+                            value='Pull_Rates',
+                            placeholder='Select Operator',
+                            searchable=False,
+                            multi=False),style={'width': '28%', 'float': 'center', 'display': 'inline-block'}),
+        html.Div(dcc.Graph(id=reference+'rates_graph',figure=fig,style={'width': '65%'})),
         html.Div(dcc.Interval(
-            id='interval-main_table',
-            interval=3*60*1000, # in milliseconds
+            id=reference+'interval-main_table',
+            interval=refreshing_time, # in milliseconds
             n_intervals=0)),
         html.Div(dcc.Interval(
-            id='interval-results_table',
-            interval=3*60*1000, # in milliseconds
+            id=reference+'interval-results_table',
+            interval=refreshing_time, # in milliseconds
             n_intervals=0)),
         html.Div(dcc.Interval(
-            id='interval_graph',
-            interval=3*60*1000, # in milliseconds
+            id=reference+'interval_graph',
+            interval=refreshing_time, # in milliseconds
             n_intervals=0)),
-    ])
+                ])
 
 @app.callback(
-        Output('rates_graph', 'figure'),
-        [Input('name_list', 'value'),Input('interval_graph', 'n_intervals')])
+        Output(reference+'rates_graph', 'figure'),
+        [Input(reference+'name_list', 'value'),Input(reference+'interval_graph', 'n_intervals')])
 
 def update_graph(name_list,interval_graph):
+        main,aux=fx.get_main_aux(file_name)
+        df=fx.main_table(file_name)
         if name_list!='Pull_Rates' and name_list!='Total' and name_list:
-            df=main_table()
-            dff=df.T.iloc[:-1,:]
-            dff=dff[dff['Total']>0]
-            dff['Hour']=dff.index
-            fig=px.line(dff, x='Hour', y=name_list, title=name_list+' Performance curve')
-            fig.add_trace(go.Scatter(x=dff.index, y=[df['Rate'].loc[name_list] for i in dff.index],
+            fig=px.line(aux, x='Hour', y=name_list, title=name_list+' Performance curve')
+            fig.add_trace(go.Scatter(x=aux.index, y=[df['Rate'].loc[name_list] for i in aux.index],
                     mode='lines',
                     name="Average {:,.2f} ilpns/hour".format(df['Rate'].loc[name_list])))
             return fig
         else :
-            df=main_table()
-            dff=df.T.iloc[:-1,:]
-            dff=dff[dff['Total']>0]
-            dff['Hour']=dff.index
-            fig=px.line(dff, x='Hour', y='Total', title='Total Performance curve')
-            main=main_table()
-            main.insert(loc=0,column='Reference', value=main.index)
-            main['Rate']['Total']=main.loc['Total'][1:-1][main.loc['Total'][1:-1]>0].mean()
-            main['Rate'] = main['Rate'].map('{:,.2f}'.format)
-            fig.add_trace(go.Scatter(x=dff.index, y=[float(main['Rate'].loc['Total']) for i in dff.index],
-                    mode='lines',
-                    name="Average {:,.2f} ilpns/hour".format(float(main['Rate'].loc['Total']))))
+            fig=px.line(aux, x='Hour', y='Total', title='Total Performance curve')
+            fig.add_trace(go.Scatter(x=aux.index, y=[float(main['Rate'].loc['Total']) for i in aux.index],
+                        mode='lines',
+                        name="Average {:,.2f} ilpns/hour".format(float(main['Rate'].loc['Total']))))
             return fig
+            
    
-@app.callback(Output('main_table', 'data'),
-              [Input('interval-main_table', 'n_intervals')])
+@app.callback(Output(reference+'main_table', 'data'),
+              [Input(reference+'interval-main_table', 'n_intervals')])
     
 def update_main_table(n_intervals):
-        hour=int(time.ctime()[11:13])
-        if hour>=12 and hour<=21:  
-            fx.get_rates(reference,afternoon,date.today())
-        dff=main_table()
-        dff.insert(loc=0,column='Reference', value=dff.index)
-        dff['Rate']['Total']=dff.loc['Total'][1:-1][dff.loc['Total'][1:-1]>0].mean()
-        dff['Rate'] = dff['Rate'].map('{:,.2f}'.format)
-        dff.fillna(0)
-        data=dff.to_dict('records')
+        file_name=str(fx.date_reader())[5:10]+reference+'.xlsx'
+        main=fx.get_main_aux(file_name)[0]
+        data=main.to_dict('records')
         return data
 
-
-@app.callback(Output('time_update', 'children'),
-              [Input('interval-main_table', 'n_intervals')])
+@app.callback(Output(reference+'time_update', 'children'),
+              [Input(reference+'interval-main_table', 'n_intervals')])
 def update_time(n_intervals):
-        return time_()
+        return fx.update_time()
 
-@app.callback(Output('results_table', 'data'),
-              [Input('interval-results_table', 'n_intervals')])
+@app.callback(Output(reference+'results_table', 'data'),
+              [Input(reference+'interval-results_table', 'n_intervals')])
     
 def update_results_table(n_intervals):
-        a_results_table['Expected_Results']=general_indicators()[0]
-        a_results_table['Net Results']=general_indicators()[1]
-        a_results_table['Difference']=general_indicators()[1]-general_indicators()[0]
-        data=a_results_table.to_dict('records')
-        return data
+    file_name=str(fx.date_reader())[5:10]+reference+'.xlsx'
+    df=fx.main_table(file_name)
+    results_table=fx.get_results_table(file_name,df)
+    data=results_table.to_dict('records')
+    return data
+
+
+
+

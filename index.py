@@ -3,8 +3,11 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 
 from app import app
-from apps import Morning, Afternoon, Night, home
+from apps import Morning, Afternoon, Night, home, functions as fx
 
+#update the database
+fx.get_data()  
+fx.initializer(3,-1,-1)
 
 app.layout = html.Div([html.H1(dcc.Link('HOME', href='/apps/home'),style={'text-align':'center'}),html.H2([dcc.Link('Morning /', href='/apps/Morning'),dcc.Link(' Afternoon /', href='/apps/Afternoon'),dcc.Link(' Night /', href='/apps/Night')],
 style={'text-align':'center'}),
@@ -27,4 +30,4 @@ def display_page(pathname):
         return 'To be continued'
 
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False,port=8000,host='0.0.0.0')
