@@ -106,7 +106,7 @@ layout =html.Div(
                     ],style={'width':'70%'}),
         html.Div(dcc.Dropdown(id=reference+'name_list',
                             options=[{'label': i, 'value': i} for i in df.index],
-                            value='Pull_Rates',
+                            value=df.index[0],
                             placeholder='Select Operator',
                             searchable=False,
                             multi=False),style={'width': '28%', 'float': 'center', 'display': 'inline-block'}),
@@ -121,10 +121,6 @@ layout =html.Div(
             n_intervals=0)),
         html.Div(dcc.Interval(
             id=reference+'interval_graph',
-            interval=refreshing_time, # in milliseconds
-            n_intervals=0)),
-        html.Div(dcc.Interval(
-            id=reference+'interval_dropdown',
             interval=refreshing_time, # in milliseconds
             n_intervals=0))
                 ])
@@ -176,10 +172,10 @@ def update_results_table(n_intervals):
 
 
 @app.callback(Output(reference+'name_list', 'options'),
-              [Input(reference+'interval_dropdown', 'n_intervals')])
+              [Input(reference+'interval-main_table', 'n_intervals')])
 def update_dropbox(n_intervals):
         file_name=str(fx.date_reader())[5:10]+reference+'.xlsx'
         df=fx.main_table(file_name)
-        data_=df.to_dict('records')
-        return data_
+        options=[{'label': i, 'value': i} for i in df.index]
+        return options
 

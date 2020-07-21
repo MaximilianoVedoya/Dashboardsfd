@@ -171,6 +171,13 @@ def update_results_table(n_intervals):
     data=results_table.to_dict('records')
     return data
 
+@app.callback(Output(reference+'name_list', 'options'),
+              [Input(reference+'interval-main_table', 'n_intervals')])
+def update_dropbox(n_intervals):
+        file_name=str(fx.date_reader())[5:10]+reference+'.xlsx'
+        df=fx.main_table(file_name)
+        options=[{'label': i, 'value': i} for i in df.index]
+        return options
 
 
 
