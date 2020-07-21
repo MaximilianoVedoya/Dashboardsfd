@@ -448,7 +448,6 @@ def summary(n_shift,m_shift,a_shift,date):
         total=get_summary(sum_)
         return total
 
-    
 #it should be ran at the beginning to ensure the rest of the things work
 #it ensure the existence of the 3 previous days, and the current day. 
 def initializer(finish,start,decrement=-1):

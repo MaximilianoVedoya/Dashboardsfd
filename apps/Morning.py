@@ -153,7 +153,6 @@ def update_graph(name_list,interval_graph):
 def update_main_table(n_intervals):
         file_name=str(fx.date_reader())[5:10]+reference+'.xlsx'
         main=fx.get_main_aux(file_name)[0]
-        df=fx.main_table(file_name)
         data=main.to_dict('records')
         return data
 
