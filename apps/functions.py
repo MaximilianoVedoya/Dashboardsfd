@@ -274,7 +274,7 @@ def get_data():
         for row in range(len(data)):
             df[reference[item]][row]=data[row][item]
 
-    out_path='archive\database.xlsx'
+    out_path='archive\Pulling\database.xlsx'
     writer = pd.ExcelWriter(out_path , engine='xlsxwriter')
     df.to_excel(writer, sheet_name='Sheet1')
     writer.save()
@@ -282,46 +282,45 @@ def get_data():
 
 #recibes the name of the shift, definitiion of shifts, date and raw data(from the function get_data()
 def get_rates(shift,period,date_,data):
-    try:
-        from datetime import date
-        import datetime
-        import pandas as pd
+    from datetime import date
+    import datetime
+    import pandas as pd
         
-        def get_users(shift,date_):
-                temp=data[data['Shft']==shift]
-                temp=temp.sort_values(by='pulling_date_time')
-                temp=temp.set_index('pulling_date_time')
-                g=temp.groupby(temp.index.floor('d'))
-                my_day = pd.Timestamp(date_)
-                df_slice = g.get_group(my_day)   
-                return list(df_slice.usr.unique())
+    def get_users(shift,date_):
+        temp=data[data['Shft']==shift]
+        temp=temp.sort_values(by='pulling_date_time')
+        temp=temp.set_index('pulling_date_time')
+        g=temp.groupby(temp.index.floor('d'))
+        my_day = pd.Timestamp(date_)
+        df_slice = g.get_group(my_day)   
+        return list(df_slice.usr.unique())
 
-        def get_list(start,finish,shift,date_):
-                morning=data[data['Shft']==shift]
-                morning=morning.sort_values(by='pulling_date_time')
-                morning=morning.set_index('pulling_date_time')
-                g=morning.groupby(morning.index.floor('d'))
-                my_day = pd.Timestamp(date_)
-                df_slice = g.get_group(my_day)      
-                first_hour=df_slice.between_time(start,finish)
-                operators=first_hour['usr'].unique()
-                dic={employee: first_hour[first_hour['usr']==employee]['ilpn'].size for employee in operators}
-                return dic
+    def get_list(start,finish,shift,date_):
+        morning=data[data['Shft']==shift]
+        morning=morning.sort_values(by='pulling_date_time')
+        morning=morning.set_index('pulling_date_time')
+        g=morning.groupby(morning.index.floor('d'))
+        my_day = pd.Timestamp(date_)
+        df_slice = g.get_group(my_day)      
+        first_hour=df_slice.between_time(start,finish)
+        operators=first_hour['usr'].unique()
+        dic={employee: first_hour[first_hour['usr']==employee]['ilpn'].size for employee in operators}
+        return dic
 
-        def built_dataframe(shift,period,date_):
-                list_=[s+'-'+e for s,e in period]
-                list_.insert(0,'Name')
-                users=get_users(shift,date_)
-                df=pd.DataFrame(columns=list_, index=pd.Series(users))
-                starting=[s for s,e in period]
-                ending=[e for s,e in period]
-                def dataframe(s,e,shift):
-                    for name,rate in get_list(s,e,shift,date_).items():
-                        df[s+'-'+e][name]=rate
-                for s,e in period:
-                    dataframe(s,e,shift)
-                return df 
-
+    def built_dataframe(shift,period,date_):
+        list_=[s+'-'+e for s,e in period]
+        list_.insert(0,'Name')
+        users=get_users(shift,date_)
+        df=pd.DataFrame(columns=list_, index=pd.Series(users))
+        starting=[s for s,e in period]
+        ending=[e for s,e in period]
+        def dataframe(s,e,shift):
+            for name,rate in get_list(s,e,shift,date_).items():
+                df[s+'-'+e][name]=rate
+        for s,e in period:
+            dataframe(s,e,shift)
+        return df 
+    try:
         df=built_dataframe(shift,period,date_)
         df['Name']=df.index
         df=df.fillna(0)
@@ -330,10 +329,10 @@ def get_rates(shift,period,date_,data):
         df=df.sort_values('Rate',ascending=False)
         df['Rate'] = df['Rate'].map('{:,.2f}'.format)
         string=str(date_)[5:10]+shift+'.xlsx'
-        df.to_excel('archive/'+string)
+        df.to_excel('archive/Pulling/'+string)
     except:
         pass
-
+    
 #smalls function to reads the date from the users (i might not need this, maybe I can read it from the input itself)
 def date_reader():
     import pandas as pd
@@ -344,24 +343,32 @@ def date_reader():
     return pd.Timestamp(obj)
 
 #it should let you know when was the last time the table was updated 
-def update_time():
+def update_time(start,finish):
     import datetime
     import time
+    from apps import functions as fx
     hour=int(time.ctime()[11:13])
-    if hour>=4 and hour<=12:
-        now = datetime.datetime.now()    
-        return 'Last update '+now.strftime("%H:%M %m-%d")
+    today=time.ctime()[8:10]
+    user_input=str(fx.date_reader())[8:10]
+    if today==user_input:
+        if hour>=20 or hour<=4:
+            now = datetime.datetime.now()  
+            return 'Last update '+now.strftime("%H:%M %m-%d")
+        else:
+            if hour>=start and hour<=finish:
+                now = datetime.datetime.now()    
+                return 'Last update '+now.strftime("%H:%M %m-%d")
+            else:
+                today = datetime.date.today()
+                return f'Last update {finish}:00 {str(today)[5:]}'
     else:
-        today = datetime.date.today()
-        yesterday = today - datetime.timedelta(days=1)
-        return f'Last update 12:00 {str(yesterday)[5:]}'
+        return f'Last update {finish}:00 {str(fx.date_reader())[5:10]}'
 
 # file_name= day-monthMorning shift.xslx (07-15Morning shift)
-
-#this is a auxiliar fucntions used to rearange information form the database
+# this is a auxiliar fucntions used to rearange information form the database
 def main_table(file_name : str):
     import pandas as pd 
-    df=pd.read_excel('archive/'+file_name)
+    df=pd.read_excel('archive/Pulling/'+file_name)
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
     df=df.set_index('Name')
     df.loc['Total',:]=df.sum(axis=0)
@@ -390,7 +397,7 @@ def get_results_table(file_name: str,df): #dataframe
 def get_main_aux(file_name):
     import pandas as pd
     def main_table(file_name : str):
-            df=pd.read_excel('archive/'+file_name)
+            df=pd.read_excel('archive/Pulling/'+file_name)
             df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
             df=df.set_index('Name')
             df.loc['Total',:]=df.sum(axis=0)
@@ -414,7 +421,6 @@ def summary(n_shift,m_shift,a_shift,date):
     
     def get_summary(sum_):
         total=pd.DataFrame(columns=['Expected Results','Net Results','Difference'], index=pd.Series(range(4)))
-        total
         total.iloc[0]=n_shift.iloc[0]
         total.iloc[1]=m_shift.iloc[0]
         total.iloc[2]=a_shift.iloc[0]
@@ -433,7 +439,7 @@ def summary(n_shift,m_shift,a_shift,date):
         if hour<=13:
             sum_=n_shift+m_shift
             total=get_summary(sum_)
-        if hour>13 and hour<=20:
+        else:
             sum_=n_shift+m_shift+a_shift
             total=get_summary(sum_)
         return total
@@ -442,8 +448,9 @@ def summary(n_shift,m_shift,a_shift,date):
         total=get_summary(sum_)
         return total
 
+    
 #it should be ran at the beginning to ensure the rest of the things work
-#it ensure the existence of the 3 previous days, does not get the current day. 
+#it ensure the existence of the 3 previous days, and the current day. 
 def initializer(finish,start,decrement=-1):
     import pandas as pd
     import datetime
@@ -464,13 +471,178 @@ def initializer(finish,start,decrement=-1):
                 date_=today-datetime.timedelta(days=i)
                 date_=pd.Timestamp(date_) 
                 from apps import functions as fx
-                data=pd.read_excel('archive/database.xlsx')
+                data=pd.read_excel('archive/Pulling/database.xlsx')
                 fx.get_rates(shift[0],shift[1],pd.Timestamp(date_),data)
     except:
-        yesterday=date_-datetime.timedelta(days=1)
-        file_name=str(yesterday)[5:10]+shift[0]+'.xlsx'
-        df=pd.read_excel('archive/'+file_name)
-        aux=pd.DataFrame(columns=df.columns,index=df.index)
-        aux['Name']=df['Name']
-        file_name=str(date_)[5:10]+shift[0]+'.xlsx'
-        aux.to_excel('archive/'+file_name)
+        for shift in shifts:
+            try:
+                data=pd.read_excel('archive/Pulling/database.xlsx')
+                fx.get_rates(shift[0],shift[1],pd.Timestamp(date_),data)
+            except:
+                yesterday=date_-datetime.timedelta(days=1)
+                file_name=str(yesterday)[5:10]+shift[0]+'.xlsx'
+                df=pd.read_excel('archive/Pulling/'+file_name)
+                aux=pd.DataFrame(columns=df.columns,index=df.index)
+                aux['Name']=df['Name']
+                file_name=str(date_)[5:10]+shift[0]+'.xlsx'
+                aux.to_excel('archive/Pulling'+file_name)
+
+#reads the database for the sorting and final putaway
+def putaway_get_data():
+    import pandas as pd
+    import numpy as np
+    from datetime import date
+    import pyodbc
+
+    connection = pyodbc.connect('DRIVER={SQL Server};'
+
+                                'SERVER=nj01prdbidb01.intranet.biz.freshdirect.com;'
+
+                                'DATABASE=DASHBOARD;'
+
+                                'UID=DASH_READONLY;'
+
+                                'PWD=Mbers0nyon#123;'
+                                
+                                "autocommit = True")
+    query="""
+        select distinct pt.CNTR_NBR lpn,pt.CREATE_DATE_TIME Sort_date_time, convert(date,pt.CREATE_DATE_TIME) Sort_Date,substring(TO_LOC.LVL,1,1) Lvl,pt.USER_ID, us.USER_FIRST_NAME+','+us.USER_LAST_NAME Usr, to_loc.DSP_LOCN To_loc,
+
+        CASE DATEPART(HOUR, pt.CREATE_DATE_TIME)
+            WHEN 0 THEN  '12AM'
+            WHEN 1 THEN   '01AM'
+            WHEN 2 THEN   '02AM'
+            WHEN 3 THEN   '03AM'
+            WHEN 4 THEN   '04AM'
+            WHEN 5 THEN   '05AM'
+            WHEN 6 THEN   '06AM'
+            WHEN 7 THEN   '07AM'
+            WHEN 8 THEN   '08AM'
+            WHEN 9 THEN   '09AM'
+            WHEN 10 THEN '10AM'
+            WHEN 11 THEN '11AM'
+            WHEN 12 THEN '12PM'
+            ELSE Format(DATEPART(HOUR, pt.CREATE_DATE_TIME)-12,'00') + 'PM'end as Sort_hour,
+
+
+        case 	when
+
+        CASE DATEPART(HOUR, pt.CREATE_DATE_TIME)
+            WHEN 0 THEN  '12AM'
+            WHEN 1 THEN   '01AM'
+            WHEN 2 THEN   '02AM'
+            WHEN 3 THEN   '03AM'
+            WHEN 4 THEN   '04AM'
+            WHEN 5 THEN   '05AM'
+            WHEN 6 THEN   '06AM'
+            WHEN 7 THEN   '07AM'
+            WHEN 8 THEN   '08AM'
+            WHEN 9 THEN   '09AM'
+            WHEN 10 THEN '10AM'
+            WHEN 11 THEN '11AM'
+            WHEN 12 THEN '12PM'
+            ELSE Format(DATEPART(HOUR, pt.CREATE_DATE_TIME)-12,'00') + 'PM'end
+
+            in ('04AM','05AM','06AM','07AM','08AM','09AM','10AM','11AM') then 'Morning shift'
+
+            when
+        CASE DATEPART(HOUR, pt.CREATE_DATE_TIME)
+            WHEN 0 THEN  '12AM'
+            WHEN 1 THEN   '01AM'
+            WHEN 2 THEN   '02AM'
+            WHEN 3 THEN   '03AM'
+            WHEN 4 THEN   '04AM'
+            WHEN 5 THEN   '05AM'
+            WHEN 6 THEN   '06AM'
+            WHEN 7 THEN   '07AM'
+            WHEN 8 THEN   '08AM'
+            WHEN 9 THEN   '09AM'
+            WHEN 10 THEN '10AM'
+            WHEN 11 THEN '11AM'
+            WHEN 12 THEN '12PM'
+            ELSE Format(DATEPART(HOUR, pt.CREATE_DATE_TIME)-12,'00') + 'PM'end
+
+            in ('12PM','01PM','02PM','03PM','04PM','05PM','06PM','07PM') then 'Afternoon shift'
+
+            When 
+
+        CASE DATEPART(HOUR, pt.CREATE_DATE_TIME)
+            WHEN 0 THEN  '12AM'
+            WHEN 1 THEN   '01AM'
+            WHEN 2 THEN   '02AM'
+            WHEN 3 THEN   '03AM'
+            WHEN 4 THEN   '04AM'
+            WHEN 5 THEN   '05AM'
+            WHEN 6 THEN   '06AM'
+            WHEN 7 THEN   '07AM'
+            WHEN 8 THEN   '08AM'
+            WHEN 9 THEN   '09AM'
+            WHEN 10 THEN '10AM'
+            WHEN 11 THEN '11AM'
+            WHEN 12 THEN '12PM'
+            ELSE Format(DATEPART(HOUR, pt.CREATE_DATE_TIME)-12,'00') + 'PM'end
+
+            in ('08PM','09PM','10PM','11PM','12AM','01AM','02AM','03AM') then 'Night shift'
+
+            end as Shft
+
+        from PROD_TRKG_TRAN_WMS pt 
+        left outer join LOCN_HDR_WMS fr on fr.LOCN_ID = pt.FROM_LOCN
+        left outer join LOCN_HDR_WMS to_loc on to_loc.LOCN_ID = pt.TO_LOCN
+        join UCL_USER_WMS us on us.USER_NAME = pt.USER_ID
+        where  1=1
+        and ( to_loc.AISLE = 'AM' and substring(TO_LOC.LVL,2,1) = 'F' )
+    """
+    # Setting up a cursor.
+    cursor = connection.cursor()
+    # fetch data function.
+    data = cursor.execute(query).fetchall()
+    connection.close()                           
+
+    reference=['lpn','Sort_date_time','Sort_Date','Lvl','USER_ID','Usr','To_loc','Sort_hour','Shft']
+    df=pd.DataFrame(columns=reference,index=np.arange(len(data)))
+    for item in range(len(reference)):
+        for row in range(len(data)):
+            df[reference[item]][row]=data[row][item]
+
+    out_path='archive\Sorting_Putaway\putaway_database.xlsx'
+    writer = pd.ExcelWriter(out_path , engine='xlsxwriter')
+    df.to_excel(writer, sheet_name='Sheet1')
+    writer.save()
+    return df
+
+#returns 2 tables main and aux to be used in the views of sorting and putaway.
+def putaway_table(shift,day,schedule):
+    import datetime as dt
+    import pandas as pd
+    data=pd.read_excel('archive/Sorting_Putaway/putaway_database.xlsx')
+    def putaway_rate(user,hour,day): 
+        rate=len(data[(data['Usr']==user)&(data['Sort_hour']==hour)&(data['Sort_Date']==str(day)[:-9])]['lpn'].unique())
+        return rate
+    data=data.sort_values('Sort_date_time',ascending=False)
+    users=data[(data['Sort_Date']==str(day)[:10]) & (data['Shft']==shift)]['Usr'].unique()
+    df=pd.DataFrame(columns=schedule, index=users)
+    for name in users:
+        for hour in schedule:
+            df[hour][name]= putaway_rate(name,hour,day)
+    rates=df[df[df.columns]>20].mean(axis=1)
+    df['Rates']=rates
+    df=df.sort_values('Rates',ascending=False)
+    temp=df.sum(axis=0)
+    df=df.T
+    df['Total']=temp
+    df=df.T
+    dic={name: 0 for name in df.index}
+    for name in dic.keys():
+        if name!='Total':
+            dic[name]=data[data['Usr']==name]['Lvl'].iloc[0]
+        else:
+            dic[name]=0
+    df.insert(0,'Current Level',dic.values())
+    df['Rates']['Total']=df.loc['Total'][1:-1].mean()
+    aux=df[df.columns[1:]].T
+    aux['hours']=aux.index
+
+    # pd.to_excel(archive/Sorting_Putaway/)
+
+    return (df,aux)

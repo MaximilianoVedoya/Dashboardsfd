@@ -31,7 +31,7 @@ refreshing_time=1*60*1000 #millisecods
 
 
 input_day=str(fx.date_reader())[5:10]
-data=pd.read_excel('archive/database.xlsx')
+data=pd.read_excel('archive/Pulling/database.xlsx')
 fx.get_rates(reference,morning,fx.date_reader(),data)
 file_name=str(fx.date_reader())[5:10]+reference+'.xlsx'
 
@@ -64,7 +64,7 @@ layout =html.Div(
                                         style_data_conditional=
                                             [ 
                                                 {
-                                                    'if': {'column_id': str(x), 'filter_query': '{{{0}}} >= 75'.format(x)},
+                                                    'if': {'column_id': str(x), 'filter_query': '{{{0}}} >= 80'.format(x)},
                                                     'background_color': '#B3E577',
                                                 } for x in df.columns
 
@@ -72,14 +72,14 @@ layout =html.Div(
                                             +
                                             [
                                                 {
-                                                    'if': {'column_id': str(x), 'filter_query': '{{{0}}} > 35 && {{{0}}} <75'.format(x)},
+                                                    'if': {'column_id': str(x), 'filter_query': '{{{0}}} > 60 && {{{0}}} <80'.format(x)},
                                                     'background_color': '#E0ED4B',
                                                 } for x in df.columns
                                             ]
                                             +
                                             [
                                                 {
-                                                    'if': {'column_id': str(x), 'filter_query': '{{{0}}} <= 35'.format(x)},
+                                                    'if': {'column_id': str(x), 'filter_query': '{{{0}}} <= 60'.format(x)},
                                                     'background_color': '#F78B54',
                                                 } for x in df.columns
                                             ]
@@ -130,6 +130,7 @@ layout =html.Div(
         [Input(reference+'name_list', 'value'),Input(reference+'interval_graph', 'n_intervals')])
 
 def update_graph(name_list,interval_graph):
+        file_name=str(fx.date_reader())[5:10]+reference+'.xlsx'
         main,aux=fx.get_main_aux(file_name)
         df=fx.main_table(file_name)
         if name_list!='Pull_Rates' and name_list!='Total' and name_list:
@@ -158,7 +159,7 @@ def update_main_table(n_intervals):
 @app.callback(Output(reference+'time_update', 'children'),
               [Input(reference+'interval-main_table', 'n_intervals')])
 def update_time(n_intervals):
-        return fx.update_time()
+        return fx.update_time(4,12)
 
 @app.callback(Output(reference+'results_table', 'data'),
               [Input(reference+'interval-results_table', 'n_intervals')])

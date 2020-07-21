@@ -20,18 +20,18 @@ m_shift=Morning.results_table
 a_shift=Afternoon.results_table
 date_=fx.date_reader()
 total= fx.summary(n_shift,m_shift,a_shift,date_)
- 
+
+
 layout= html.Div([ 
-                html.H1('Total Pulling '+datetime.datetime.now().strftime("%m-%d"),style={'float': 'center','text-align':'center'}),
-                html.Div(id='date-picker',style={'float': 'center','align':'center'}),
-                html.Div([dcc.DatePickerSingle( id='my-date-picker-single',
-                                                min_date_allowed=datetime.date.today()-datetime.timedelta(days=3),
+                html.H1('Total Pulling',id='data_updater',style={'float': 'center','text-align':'center'}),
+                # html.Div(id='date-picker',style={'float': 'center','align':'center'}),
+                html.Div(dcc.DatePickerSingle( id='my-date-picker-single',
+                                                # min_date_allowed=datetime.date.today()-datetime.timedelta(days=3),
+                                                min_date_allowed=datetime.datetime(2020,7,12),
                                                 max_date_allowed=datetime.date.today()-datetime.timedelta(days=0),
                                                 initial_visible_month=datetime.date.today(),
                                                 date=str(datetime.date.today())
-                                                ),
-                        html.Div(id='data_updater')
-                        ],style={'float': 'center','align':'center'}),
+                                                )),
                 html.Div(dash_table.DataTable(
                                         id='main_table_home',
                                         columns=[{"name": i, "id": i} for i in total.columns],
@@ -63,8 +63,6 @@ def update_overall_table(date):
             with open(filename, 'wb') as output:  # Overwrites any existing file.
                 pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
         save_object(date,'date.pckl')
-        print(fx.date_reader())
-
         shifts=['Night shift','Morning shift','Afternoon shift']
         temp_=list()
         for shift in shifts:
@@ -77,11 +75,13 @@ def update_overall_table(date):
     except:
         return total.to_dict('records')
 
-@app.callback(Output('data_updater', 'data'),
-              [Input('interval-data', 'n_intervals')])
 
-def update_database(n_intervals):
-    fx.get_data()
-    fx.initializer(1,-1,-1)
+@app.callback(Output('date-picker', 'children'),
+    [Input('my-date-picker-single', 'date')])
+
+def update_date(date):
+    return str(date)[5:10]
+
+
 
 
