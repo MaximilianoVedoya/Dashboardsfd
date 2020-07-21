@@ -123,6 +123,10 @@ layout =html.Div(
             id=reference+'interval_graph',
             interval=refreshing_time, # in milliseconds
             n_intervals=0)),
+        html.Div(dcc.Interval(
+            id=reference+'interval_dropdown',
+            interval=refreshing_time, # in milliseconds
+            n_intervals=0))
                 ])
 
 @app.callback(
@@ -171,8 +175,8 @@ def update_results_table(n_intervals):
     return data
 
 
-@app.callback(Output(reference+'name_list', 'data'),
-              [Input(reference+'interval-main_table', 'n_intervals')])
+@app.callback(Output(reference+'name_list', 'options'),
+              [Input(reference+'interval_dropdown', 'n_intervals')])
 def update_dropbox(n_intervals):
         file_name=str(fx.date_reader())[5:10]+reference+'.xlsx'
         df=fx.main_table(file_name)
