@@ -464,27 +464,29 @@ def initializer(finish,start,decrement=-1):
     shifts=[('Night shift',night),('Morning shift',morning),('Afternoon shift',afternoon)]
     
     today=datetime.date.today()
-    try:
-        for i in range(finish,start,decrement):
-            for shift in shifts: 
-                date_=today-datetime.timedelta(days=i)
-                date_=pd.Timestamp(date_) 
-                from apps import functions as fx
-                data=pd.read_excel('archive/Pulling/database.xlsx')
-                fx.get_rates(shift[0],shift[1],pd.Timestamp(date_),data)
-    except:
-        for shift in shifts:
+    
+    for i in range(finish,start,decrement):
+        for shift in shifts: 
+            date_=today-datetime.timedelta(days=i)
+            date_=pd.Timestamp(date_) 
+            from apps import functions as fx
+            data=pd.read_excel('archive/Pulling/database.xlsx')
+            fx.get_rates(shift[0],shift[1],pd.Timestamp(date_),data)
+    
+    for i in range(finish,start,decrement):
+        for shift in shifts: 
             try:
-                data=pd.read_excel('archive/Pulling/database.xlsx')
-                fx.get_rates(shift[0],shift[1],pd.Timestamp(date_),data)
+                date_=today-datetime.timedelta(days=i)
+                string=str(date_)[5:10]+shift+'.xlsx'
+                pd.read_excel('archive/Pulling/'+string)
             except:
-                yesterday=date_-datetime.timedelta(days=1)
-                file_name=str(yesterday)[5:10]+shift[0]+'.xlsx'
-                df=pd.read_excel('archive/Pulling/'+file_name)
-                aux=pd.DataFrame(columns=df.columns,index=df.index)
-                aux['Name']=df['Name']
-                file_name=str(date_)[5:10]+shift[0]+'.xlsx'
-                aux.to_excel('archive/Pulling'+file_name)
+                    yesterday=date_-datetime.timedelta(days=1)
+                    file_name=str(yesterday)[5:10]+shift[0]+'.xlsx'
+                    df=pd.read_excel('archive/Pulling/'+file_name)
+                    aux=pd.DataFrame(columns=df.columns,index=df.index)
+                    aux['Name']=df['Name']
+                    file_name=str(date_)[5:10]+shift[0]+'.xlsx'
+                    aux.to_excel('archive/Pulling/'+file_name)
 
 #reads the database for the sorting and final putaway
 def putaway_get_data():
