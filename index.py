@@ -39,6 +39,5 @@ def display_page(pathname):
         return Morning_Sorting.layout
     else: 
         return 'To be continued'
-
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False,port=8000,host='0.0.0.0')
