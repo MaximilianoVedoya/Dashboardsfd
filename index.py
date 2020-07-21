@@ -17,7 +17,8 @@ app.layout = html.Div([html.H1(dcc.Link('HOME', href='/apps/home'),style={'text-
                        html.H2([dcc.Link('Morning /', href='/apps/Morning'),
                                 dcc.Link(' Afternoon /', href='/apps/Afternoon'),
                                 dcc.Link(' Night /', href='/apps/Night'),
-                                dcc.Link(' Morning Sorting /', href='/apps/Morning_Sorting')],
+                                # dcc.Link(' Morning Sorting /', href='/apps/Morning_Sorting')
+                                ],
 style={'text-align':'center'}),
     dcc.Location(id='url', refresh=False),
     html.Div(id='page-content')
