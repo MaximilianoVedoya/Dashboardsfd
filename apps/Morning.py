@@ -146,7 +146,6 @@ def update_graph(name_list,interval_graph):
                         name="Average {:,.2f} ilpns/hour".format(float(main['Rate'].loc['Total']))))
             return fig
             
-   
 @app.callback(Output(reference+'main_table', 'data'),
               [Input(reference+'interval-main_table', 'n_intervals')])
     
