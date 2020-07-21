@@ -31,7 +31,7 @@ refreshing_time=1*60*1000 #millisecods
 
 
 input_day=str(fx.date_reader())[5:10]
-data=pd.read_excel('archive/Pulling/database.xlsx')
+data=pd.read_excel('archive/Pullingdatabase.xlsx')
 fx.get_rates(reference,night,fx.date_reader(),data)
 file_name=str(fx.date_reader())[5:10]+reference+'.xlsx'
 
