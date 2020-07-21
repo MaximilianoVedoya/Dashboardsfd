@@ -477,7 +477,7 @@ def initializer(finish,start,decrement=-1):
         for shift in shifts: 
             try:
                 date_=today-datetime.timedelta(days=i)
-                string=str(date_)[5:10]+shift+'.xlsx'
+                string=str(date_)[5:10]+shift[0]+'.xlsx'
                 pd.read_excel('archive/Pulling/'+string)
             except:
                     yesterday=date_-datetime.timedelta(days=1)
