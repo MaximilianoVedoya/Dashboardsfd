@@ -280,7 +280,8 @@ def get_data():
     writer.save()
     return df
 
-#recibes the name of the shift, definitiion of shifts, date and raw data(from the function get_data()
+#recibes the name of the shift, definitiion of shifts, 
+# date(YYYY-MM-DD) and raw data(from the function get_data()
 def get_rates(shift,period,date_,data):
     from datetime import date
     import datetime
@@ -328,12 +329,18 @@ def get_rates(shift,period,date_,data):
         df['Rate']=df2[df2>20].mean(axis=0)
         df=df.sort_values('Rate',ascending=False)
         df['Rate'] = df['Rate'].map('{:,.2f}'.format)
+        #adds the last location detected. 
+        data=data.sort_values('pulling_date_time', ascending=False)
+        Last_location=list()
+        for user in df.index:
+                Last_location.append(data[(data['usr']==user)]['WA/WG'].iloc[0])
+        df.insert(1,'Last Location',Last_location)  
         string=str(date_)[5:10]+shift+'.xlsx'
         df.to_excel('archive/Pulling/'+string)
     except:
         pass
-    
-#smalls function to reads the date from the users (i might not need this, maybe I can read it from the input itself)
+
+#small function to reads the date from the users (i might not need this, maybe I can read it from the input itself)
 def date_reader():
     import pandas as pd
     import pickle
@@ -358,6 +365,9 @@ def update_time(start,finish):
             if hour>=start and hour<=finish:
                 now = datetime.datetime.now()    
                 return 'Last update '+now.strftime("%H:%M %m-%d")
+            elif start==12 and finish==20:
+                yesterday = datetime.date.today()-datetime.timedelta(days=1)
+                return f'Last update {finish}:00 {str(yesterday)[5:]}'
             else:
                 today = datetime.date.today()
                 return f'Last update {finish}:00 {str(today)[5:]}'
@@ -372,42 +382,67 @@ def main_table(file_name : str):
     df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
     df=df.set_index('Name')
     df.loc['Total',:]=df.sum(axis=0)
+    try:
+        df['Last Location']['Total']='---'
+    except:
+        pass
     return df
 #it gives you the resutls table (a summary of the numbers of the day)
 def get_results_table(file_name: str,df): #dataframe
     import pandas as pd
     import numpy as np
     def general_indicators(file_name: str,df):
-            df2=df.iloc[:-1,:-1]
-            temp=df2[df2>20]
+            df=df.iloc[:-1,:-1]
+            df=df.set_index('Last Location')
+            temp=df[df>20]
+            #This takes into account the sectors where the rates are not supposed to be 100
+            temp1=(temp[temp.index=='RL1/AMRV']>0)*0.5
+            temp1.index.names=['Hour']
+            temp1=temp1.T
+            temp2=(temp[temp.index=='RL2/AMRV']>0)*0.5
+            temp2.index.names=['Hour']
+            temp2=temp2.T
+            temp3=(temp[temp.index=='RL3/AMRV']>0)*0.5
+            temp3.index.names=['Hour']
+            temp3=temp3.T
+            temp4=(temp[temp.index=='RL4/AMRV']>0)*0.5
+            temp4.index.names=['Hour']
+            temp4=temp4.T
+            temp5=(temp[temp.index=='SHR/SHRE']>0)*0.5
+            temp5.index.names=['Hour']
+            temp5=temp5.T
+            frames=[temp1,temp2,temp3,temp4,temp5]
+            adjust=pd.concat(frames,axis=1)
+            adjust=adjust.sum(axis=1)
             results=pd.DataFrame(index=np.arange(len(temp.count())))
             results['Hour']=temp.count().index
+            results.set_index('Hour')
             results['Headcount']=temp.count().values
-            results['Exp_Rate/person']=np.where((results['Hour']=='8:00-9:00') | (results['Hour']=='9:00-10:00'),75,100)
-            results['Exp_Rate']=results['Exp_Rate/person']*results['Headcount']
-            expected,real=results['Exp_Rate'].sum(axis=0),df2.sum(axis=0).sum()
+            results['adjust']=list(adjust)
+            results['adjusted_Headcount']=results['Headcount']-results['adjust'] 
+            results['Exp_Rate/person']=100
+            results['Exp_Rate']=results['Exp_Rate/person']*results['adjusted_Headcount']
+            expected,real=results['Exp_Rate'].sum(axis=0),df.sum(axis=0).sum()
             return (expected,real)
+    
     expected,net=general_indicators(file_name,df)
     results_table=pd.DataFrame(columns=['Expected Results','Net Results','Difference'],index=np.arange(1))
     results_table['Expected Results']=expected
     results_table['Net Results']=net
     results_table['Difference']=net-expected
     return results_table
+
 #returns main and aux tables, both used in the dashborad of each shift (main is the one that is direclty displayed)
 def get_main_aux(file_name):
     import pandas as pd
-    def main_table(file_name : str):
-            df=pd.read_excel('archive/Pulling/'+file_name)
-            df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-            df=df.set_index('Name')
-            df.loc['Total',:]=df.sum(axis=0)
-            return df
-    main=main_table(file_name)
+    from apps import functions as fx
+    main=fx.main_table(file_name)
     main.insert(loc=0,column='Reference', value=main.index)
-    main['Rate']['Total']=main.loc['Total'][1:-1][main.loc['Total'][1:-1]>0].mean()
+    main['Rate']['Total']=main.loc['Total'][2:-1][main.loc['Total'][2:-1]>0].mean()
     main['Rate'] = main['Rate'].map('{:,.2f}'.format)
     df=main_table(file_name)
     aux=df.T.iloc[:-1,:]
+    aux=aux[1:]
     aux=aux[aux['Total']>0]
     aux['Hour']=aux.index
     return (main,aux)
@@ -424,7 +459,7 @@ def summary(n_shift,m_shift,a_shift,date):
         total.iloc[0]=n_shift.iloc[0]
         total.iloc[1]=m_shift.iloc[0]
         total.iloc[2]=a_shift.iloc[0]
-        reference=['Night','Morning','Afternoon','Total']
+        reference=['Night shift','Morning shift','Afternoon shift','Total']
         total.insert(0,'Reference',reference)
         temp_=['Total']
         for column in ['Expected Results','Net Results','Difference']:
@@ -448,9 +483,33 @@ def summary(n_shift,m_shift,a_shift,date):
         total=get_summary(sum_)
         return total
 
+#returns a bar graph showing the load distribution of among the aisles. 
+def pulling_load_distribution(shift):
+    import plotly.express as px
+    import pandas as pd
+    from apps import functions as fx
+    data=pd.read_excel('archive\Pulling\database.xlsx')
+    aisles=['001/AMMS', '07N/A07N', '07S/A07S', '08N/A08N', '08S/A08S', '09B/A09B', '09N/A09N', '09S/A09S', 'EL1/AFLO', 'RL1/AMRV', 'RL2/AMRV', 'RL3/AMRV', 'SHR/SHRE']
+    day=str(fx.date_reader())[:10]
+    try:
+        day=str(fx.date_reader())[:10]
+        aisles_load=data[(data['pulling_date']==day) & (data['Shft']==shift) ].groupby('WA/WG').count()['ilpn']
+        aisles_load.sort_values()
+        load_distribution=pd.DataFrame(columns=['Location','ilpns'],index=range(len(aisles_load)))
+        load_distribution['Location']=list(aisles_load.index)
+        load_distribution['ilpns']=list(aisles_load)
+        fig=px.bar(load_distribution, x='Location', y='ilpns',color='ilpns',text='ilpns',title='Load distribution',color_continuous_scale=['#060000','#EC9C08','#F71802'])
+        return fig
+    except:
+        load_distribution=pd.DataFrame(columns=['Location','ilpns'],index=range(len(aisles)))
+        load_distribution['Location']=aisles
+        load_distribution['ilpns']=[0 for i in range(len(aisles))]
+        fig=px.bar(load_distribution, x='Location', y='ilpns',color='ilpns',text='ilpns',title='Load distribution',color_continuous_scale=['#060000','#EC9C08','#F71802'])
+        return fig
+
 #it should be ran at the beginning to ensure the rest of the things work
 #it ensure the existence of the 3 previous days, and the current day. 
-def initializer(finish,start,decrement=-1):
+def initializer_Pulling(finish,start,decrement=-1):
     import pandas as pd
     import datetime
 
@@ -488,7 +547,7 @@ def initializer(finish,start,decrement=-1):
                     file_name=str(date_)[5:10]+shift[0]+'.xlsx'
                     aux.to_excel('archive/Pulling/'+file_name)
 
-#reads the database for the sorting and final putaway
+#reads the database for the sorting 
 def putaway_get_data():
     import pandas as pd
     import numpy as np
@@ -606,44 +665,258 @@ def putaway_get_data():
         for row in range(len(data)):
             df[reference[item]][row]=data[row][item]
 
-    out_path='archive\Sorting_Putaway\putaway_database.xlsx'
+    out_path='archive\Sorting\sorting_database.xlsx'
     writer = pd.ExcelWriter(out_path , engine='xlsxwriter')
     df.to_excel(writer, sheet_name='Sheet1')
     writer.save()
     return df
 
 #returns 2 tables main and aux to be used in the views of sorting and putaway.
-def putaway_table(shift,day,schedule):
-    import datetime as dt
+def sorting_tables(shift,day,schedule):
+        import datetime as dt
+        import pandas as pd
+        from apps import functions as fx
+    #this create the main table and aux table used to show the rates of each operator
+        data=pd.read_excel('archive/Sorting/sorting_database.xlsx')
+        def putaway_rate(user,hour,day): 
+            rate=len(data[(data['Usr']==user)&(data['Sort_hour']==hour)&(data['Sort_Date']==str(day)[:10])]['lpn'].unique())
+            return rate
+        data=data.sort_values('Sort_date_time',ascending=False)
+        users=data[(data['Sort_Date']==str(day)[:10]) & (data['Shft']==shift)]['Usr'].unique()
+        df=pd.DataFrame(columns=schedule, index=users)
+        for name in users:
+            for hour in schedule:
+                df[hour][name]= putaway_rate(name,hour,day)
+        rates=df[df[df.columns]>20].mean(axis=1)
+        df['Rates']=rates
+        df=df.sort_values('Rates',ascending=False)
+        temp=df.sum(axis=0)
+        df=df.T
+        df['Total']=temp
+        df=df.T
+        #to show the last level for which the sorted was moving ilpns
+        # dic={name: 0 for name in df.index}
+        # for name in dic.keys():
+        #     if name!='Total':
+        #         dic[name]=data[data['Usr']==name]['Lvl'].iloc[0]
+        #     else:
+        #         dic[name]=0
+        # df.insert(0,'Last location',dic.values())
+        df['Rates']['Total']=df.loc['Total'][1:-1].mean()
+        df.insert(0,'Name',df.index)
+        aux=df[df.columns[1:]].T
+        aux['hours']=aux.index
+        aux=aux[:-1]
+        name='archive/Sorting/'+str(day)[5:10]+'Sorting '+shift+'.xlsx'
+
+    #This is to create the floors table (indicates how many ilpns is going to each floor)
+        data=pd.read_excel('archive/Sorting/sorting_database.xlsx')
+        shifts=['Night shift','Morning shift','Afternoon shift']
+        floors_table=pd.DataFrame(columns=shifts, index=range(1,5))
+        for shift in shifts:
+            content=list(data[(data['Sort_Date']==str(day)[:10]) & (data['Shft']==shift)].groupby('Lvl').count()['lpn'])
+            if content:
+                floors_table[shift]=content
+            else:
+                floors_table[shift]=[0,0,0,0]
+
+        floors_table.insert(0,'level',['A1','A2','A3','A4'])
+        floors_table['Total']=floors_table[shifts].sum(axis=1)
+
+    #this is to create the resutls table
+        import pandas as pd
+        temp=df[schedule]
+        headcount=temp[temp>20].count(axis=0)
+        expected_results=headcount*100
+        expected_results.sum()
+        result_table=pd.DataFrame(columns=['Expected Results','Net Results','Difference'],index=range(1))
+        result_table['Expected Results']=expected_results.sum()
+        result_table['Net Results']=df[schedule].sum(axis=1)[:-1].sum()
+        result_table['Difference']=result_table['Net Results']-result_table['Expected Results']
+
+    #here everything is sorted into different sheets of the same excel file (1 per shift per day)   
+        with pd.ExcelWriter(name) as writer:
+            df.to_excel(writer, sheet_name='main')
+            aux.to_excel(writer, sheet_name='aux')
+            floors_table.to_excel(writer, sheet_name='floors_table')
+            result_table.to_excel(writer, sheet_name='results_table')
+        writer.save()
+
+def initializer_Sorting(finish,start,decrement=-1):
     import pandas as pd
-    data=pd.read_excel('archive/Sorting_Putaway/putaway_database.xlsx')
-    def putaway_rate(user,hour,day): 
-        rate=len(data[(data['Usr']==user)&(data['Sort_hour']==hour)&(data['Sort_Date']==str(day)[:-9])]['lpn'].unique())
-        return rate
-    data=data.sort_values('Sort_date_time',ascending=False)
-    users=data[(data['Sort_Date']==str(day)[:10]) & (data['Shft']==shift)]['Usr'].unique()
-    df=pd.DataFrame(columns=schedule, index=users)
-    for name in users:
-        for hour in schedule:
-            df[hour][name]= putaway_rate(name,hour,day)
-    rates=df[df[df.columns]>20].mean(axis=1)
-    df['Rates']=rates
-    df=df.sort_values('Rates',ascending=False)
-    temp=df.sum(axis=0)
-    df=df.T
-    df['Total']=temp
-    df=df.T
-    dic={name: 0 for name in df.index}
-    for name in dic.keys():
-        if name!='Total':
-            dic[name]=data[data['Usr']==name]['Lvl'].iloc[0]
-        else:
-            dic[name]=0
-    df.insert(0,'Current Level',dic.values())
-    df['Rates']['Total']=df.loc['Total'][1:-1].mean()
-    aux=df[df.columns[1:]].T
-    aux['hours']=aux.index
+    import datetime as dt
+    from apps import functions as fx
+    night=['01AM', '02AM', '03AM', '08PM', '09PM', '10PM', '11PM', '12AM']
+    morning=['04AM','05AM','06AM','07AM','08AM','09AM','10AM','11AM']
+    afternoon=['12PM','01PM', '02PM', '03PM', '04PM', '05PM', '06PM', '07PM']
+    shifts=[('Night shift',night),('Morning shift',morning),('Afternoon shift',afternoon)]
+    today=dt.date.today()
+    for i in range(finish,start,decrement):
+        day=today-dt.timedelta(days=i)
+        for shift in shifts:
+            fx.sorting_tables(shift[0],day,shift[1])
 
-    # pd.to_excel(archive/Sorting_Putaway/)
+def graphs(date_):
+    import pandas as pd
+    from apps import Afternoon, Morning,Night, functions as fx
+    import plotly.graph_objects as go
+    def get_bargraph(total,title,date_):
+        total.columns[1:]
+        total.loc[0][1:]
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            x=total.columns[1:],
+            y=total.loc[0][1:],
+            name=total.loc[0][0],
+            marker_color='#055050',
+            text=total.loc[0][1:],
+            textposition='auto'
+        ))
+        fig.add_trace(go.Bar(
+            x=total.columns[1:],
+            y=total.loc[1][1:],
+            name=total.loc[1][0],
+            marker_color='#099292',
+            text=total.loc[1][1:],
+            textposition='auto'
+        ))
+        fig.add_trace(go.Bar(
+            x=total.columns[1:],
+            y=total.loc[2][1:],
+            name=total.loc[2][0],
+            marker_color='#68bdef',
+            text=total.loc[2][1:],
+            textposition='auto'
+        ))
+        fig.add_trace(go.Bar(
+            x=total.columns[1:],
+            y=total.loc[3][1:],
+            name=total.loc[3][0],
+            marker_color='#4c6df1',
+            text=total.loc[3][1:],
+            textposition='auto'
+        ))
+        
+        fig.update_layout(barmode='group', xaxis_tickangle=0,
+        title=title+' '+str(date_)[5:10],
+        titlefont=dict(size=20),
+        xaxis=dict(titlefont_size=20,tickfont_size=20),
+        yaxis=dict(title='Number of ilpns', titlefont_size=20,tickfont_size=20)
+        )
+        
+        return fig 
 
-    return (df,aux)
+ #Summary of pulling activities
+    def results_table(date_, shift):
+        file_name=str(date_)[5:10]+shift+'.xlsx'
+        df=fx.main_table(file_name)
+        result=fx.get_results_table(file_name,df)
+        return result
+    m_shift= results_table(date_,'Morning shift')
+    n_shift= results_table(date_,'Night shift')
+    a_shift= results_table(date_,'Afternoon shift')
+    total= fx.summary(n_shift,m_shift,a_shift,date_)
+    pulling_fig=get_bargraph(total,'Summary of Pulling Activities',date_)
+
+ #Summary of Sorting activities
+    day=str(date_)[5:10]
+    total= fx.summary(n_shift,m_shift,a_shift,date_)
+    night=pd.read_excel('archive/Sorting/'+day+'Sorting Night shift.xlsx',sheet_name='results_table').loc[0][1:]
+    afternoon=pd.read_excel('archive/Sorting/'+day+'Sorting Afternoon shift.xlsx',sheet_name='results_table').loc[0][1:]
+    morning=pd.read_excel('archive/Sorting/'+day+'Sorting Morning shift.xlsx',sheet_name='results_table').loc[0][1:]
+    sorting_total=pd.DataFrame(columns=morning.index, index=range(4))
+    sorting_total.loc[0]=night
+    sorting_total.loc[1]=morning
+    sorting_total.loc[2]=afternoon
+    sorting_total.sum(axis=0)
+    sorting_total.loc[3]=sorting_total.sum(axis=0)
+    sorting_total.insert(0,'Shift',['Night shift','Morning shift','Afternoon shift','Total'])
+    sorting_fig=get_bargraph(sorting_total,'Summary of Sorting Activities',date_)
+
+    return(pulling_fig,sorting_fig)
+
+#this is for shuttle
+def shuttle_get_table():
+  #gets data from database
+    import pandas as pd
+    import numpy as np
+    from datetime import date
+    import pyodbc
+
+    connection = pyodbc.connect('DRIVER={SQL Server};'
+
+                                'SERVER=nj01prdbidb01.intranet.biz.freshdirect.com;'
+
+                                'DATABASE=DASHBOARD;'
+
+                                'UID=DASH_READONLY;'
+
+                                'PWD=Mbers0nyon#123;'
+                                
+                                "autocommit = True")
+    query="""
+        select case when replen.RDate is not null then Replen.RDate when trans.TDate is not null then trans.TDate else cycle.Date end [Date], case when replen.DisplayName is not null then replen.DisplayName when trans.DisplayName is not null then trans.DisplayName else cycle.DisplayName end [Name], replen.iLPNs,replen.Replen, trans.Transfer, cycle.Totes [CC_Totes], cycle.Compartments [CC_Quads]  
+        from (
+        select convert(varchar(8),td.CompletedDateTime,1) [RDate], auser.displayname,count(distinct slpn.Lpn) iLPNs,count(td.id) [Replen] 
+        from TaskDetail_WES td 
+        join ContainerLpn_WES slpn on slpn.Container_Id = td.SourceContainer_Id
+        join ContainerLpn_WES dlpn on dlpn.Container_Id = td.DestinationContainer_Id
+        join AuthUser_WES auser on auser.userid = td.ActualUser
+        where TaskType_Id = 440 /* and TaskPlannerId = 103 */ and td.Status  = 'COMPLETED' and holdstatus is null
+        group by convert(varchar(8),td.CompletedDateTime,1),auser.displayname
+        ) replen
+        full join (select convert(varchar(8),td.CompletedDateTime,1) [TDate],auser.DisplayName,count(td.id) [Transfer]  
+        from TaskDetail_WES td  
+        join AuthUser_WES auser on auser.UserId = td.ActualUser
+        where TaskType_Id = 420
+        and HoldStatus is null  and td.Status  = 'COMPLETED' and ReasonCode_Id is null 
+        group by convert(varchar(8),td.CompletedDateTime,1),auser.DisplayName ) trans on trans.DisplayName = replen.DisplayName and trans.TDate = replen.RDate
+        full join (select  convert(varchar,td.completeddatetime,1) Date,auser.DisplayName, count(distinct substring(lpn,1,7)) [Totes],count(Lpn) [Compartments]
+        from TaskDetail_WES td 
+        join AuthUser_WES auser on auser.userid = td.ActualUser
+        join ContainerLpn_WES lpn on lpn.Container_Id = td.SourceContainer_Id 
+        where td.TaskType_Id in (439,442,443,444) and ReasonCode_Id = 34 and td.Status  = 'COMPLETED' and Lpn.Lpn like 'S%' and holdstatus is null
+        group by convert(varchar,completeddatetime,1) ,auser.DisplayName
+        ) cycle on case when replen.RDate is not null then Replen.RDate when trans.TDate is not null then trans.TDate end =  cycle.Date and case when replen.DisplayName is not null then replen.DisplayName when trans.DisplayName is not null then trans.DisplayName end = cycle.DisplayName
+        order by convert(datetime, [Date], 1) desc, name
+
+    """
+
+    # Setting up a cursor.
+    cursor = connection.cursor()
+    # fetch data function.
+    data = cursor.execute(query).fetchall()
+    connection.close()                           
+  #organizes data into a dataframe and save the information by day
+    import datetime
+    hoy=datetime.date.today()
+    hoy=str(hoy.strftime('%m/%d/%Y'))[:6]+str(hoy.strftime('%m/%d/%Y'))[-2:]
+    date=hoy
+    temp=list()
+    for element in data:
+        temp.append([element[0],element[1],element[2]])
+    df=pd.DataFrame(columns=range(len(data)),index=['Date','Name','ilpns'])
+    for item in range(len(temp)):
+        df[item]=temp[item]
+    df=df.T.sort_values('Date',ascending=False)
+    df=df[df['Date']==date]
+    df=df.dropna()
+    df.to_excel('archive/Shuttle/'+date.replace('/','_')+'.xlsx')
+
+def shuttle_read(date):
+    import pandas as pd
+    import plotly.express as px
+    import datetime
+    try:
+        day=date.replace('/','_')
+        df=pd.read_excel('archive/Shuttle/'+day+'.xlsx')
+        fig=px.bar(df, x='Name', y='ilpns',color='ilpns',text='ilpns',title=date)
+        return (df,fig)
+    except:
+        yesterday=pd.Timestamp(date)-datetime.timedelta(days=1)
+        yesterday=str(yesterday.strftime('%m/%d/%Y'))[:6]+str(yesterday.strftime('%m/%d/%Y'))[-2:]
+        day=str(yesterday).replace('/','_')
+        print(day)
+        df=pd.read_excel('archive/Shuttle/'+day+'.xlsx')
+        fig=px.bar(df, x='Name', y='ilpns',color='ilpns',text='ilpns',title=date)
+        return (df,fig)
