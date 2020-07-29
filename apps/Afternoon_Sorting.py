@@ -12,6 +12,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 from app import app
 from apps import functions as fx
+from app import dbc
 
 
 #shifts definition

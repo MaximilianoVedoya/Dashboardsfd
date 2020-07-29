@@ -14,6 +14,7 @@ import plotly.express as px
 from apps import Afternoon, Morning,Night, functions as fx
 from app import app
 import re
+from app import dbc
 
 n_shift=Night.results_table
 m_shift=Morning.results_table
@@ -31,34 +32,13 @@ def layout():
                                               date=str(datetime.date.today())
                                               )),
                 html.H1('Summary',style={'float': 'center','text-align':'center'},id='summary'),
-                # html.H2('Pulling',style={'float': 'center','text-align':'center'}),
-                html.Div([
-                        # dash_table.DataTable(
-                        #     id='main_table_home',
-                        #     columns=[{"name": i, "id": i} for i in total.columns],
-                        #     data=total.to_dict('records'),
-                        #     editable=False,
-                        #     sort_action="native",
-                        #     column_selectable="single",
-                        #     selected_columns=[],
-                        #     selected_rows=[],
-                        #     page_action="native",
-                        #     page_current= 0,
-                        #     page_size= 100,
-                        #     style_cell={'textAlign': 'center','whiteSpace': 'normal', 'textOverflow': 'ellipsis'},
-                        #     ),
-                        dcc.Interval(
-                                    id='interval-data',
-                                    interval=5*60*1000, # in milliseconds
-                                    n_intervals=0
-                                    )
-                        ],style={'text-align':'center','width':'100%','float': 'center'}),
-
-                html.Div(dcc.Graph(id='Pulling_graph',figure=pulling_graph),style={'width': '75%'}),
-                
-                # html.H2('Sorting',style={'float': 'center','text-align':'center'}),
-                html.Div(dcc.Graph(id='Sorting_graph',figure=sorting_graph),style={'width': '75%'}),
-                
+                dcc.Interval(id='interval-data',
+                            interval=5*60*1000, # in milliseconds
+                            n_intervals=0),
+                html.Div([    
+                    dcc.Graph(id='Pulling_graph',figure=pulling_graph),
+                    dcc.Graph(id='Sorting_graph',figure=sorting_graph)
+                ],style={'margin-left':'10%','margin-right':'10%'})
                 )
 
 
