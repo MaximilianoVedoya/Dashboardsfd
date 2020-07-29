@@ -42,13 +42,18 @@ results_table=fx.get_results_table(file_name,df)
 
 
 #The following is to split the main table into 3 different sections 
-top_100=['001/AMMS','08N/A08N', '08N/A08N', '08S/A08S', '09B/A09B','09S/A09S','09S/A09S',0]
+top_100=['001/AMMS','07S/A07S','07N/A07N','08N/A08N','08S/A08S', '09B/A09B','09S/A09S','09N/A09N','EL1/AFLO',0]
 top_50=['RL1/AMRV','RL2/AMRV','RL3/AMRV','RL4/AMRV','SHR/SHRE']
 total=['---']
 temp=[main[main['Last Location']==location] for location in top_100]
-main_table_1=pd.concat(temp,axis=0).drop_duplicates().replace('nan',' ').sort_values('Rate',ascending=False)
+main_table_1=pd.concat(temp,axis=0).drop_duplicates().replace('nan',0)
+main_table_1['Rate']=main_table_1.Rate.astype(float)
+main_table_1.sort_values('Rate',ascending=False,inplace=True)
+
 temp=[main[main['Last Location']==location] for location in top_50]
-main_table_2=pd.concat(temp,axis=0).drop_duplicates().replace('nan',' ').sort_values('Rate',ascending=False)
+main_table_2=pd.concat(temp,axis=0).drop_duplicates().replace('nan',0)
+main_table_2['Rate']=main_table_2.Rate.astype(float)
+main_table_2.sort_values('Rate',ascending=False,inplace=True)
 main_table_total=main[main['Last Location']=='---']
 
 fig=px.line(aux, x='Hour', y='Total', title='Total Performance curve')
@@ -338,7 +343,10 @@ def update_main_table_1(n_intervals):
         file_name=str(fx.date_reader())[5:10]+reference+'.xlsx'
         main=fx.get_main_aux(file_name)[0]
         temp=[main[main['Last Location']==location] for location in top_100]
-        main_table_1=pd.concat(temp,axis=0).drop_duplicates().replace('nan',' ').sort_values('Rate',ascending=False)
+        main_table_1=pd.concat(temp,axis=0).drop_duplicates().replace('nan',0)
+        main_table_1['Rate']=main_table_1.Rate.astype(float)
+        main_table_1.sort_values('Rate',ascending=False,inplace=True)
+
         data=main_table_1.to_dict('records')
         return data
 
@@ -349,7 +357,9 @@ def update_main_table_2(n_intervals):
         file_name=str(fx.date_reader())[5:10]+reference+'.xlsx'
         main=fx.get_main_aux(file_name)[0]
         temp=[main[main['Last Location']==location] for location in top_50]
-        main_table_2=pd.concat(temp,axis=0).drop_duplicates().replace('nan',' ').sort_values('Rate',ascending=False)
+        main_table_2=pd.concat(temp,axis=0).drop_duplicates().replace('nan',0)
+        main_table_2['Rate']=main_table_2.Rate.astype(float)
+        main_table_2.sort_values('Rate',ascending=False,inplace=True)
         data=main_table_2.to_dict('records')
         return data
 
