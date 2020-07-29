@@ -12,6 +12,8 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 from app import app
 from apps import functions as fx
+from app import dbc
+
 
 
 #shifts definition
@@ -41,10 +43,11 @@ fig.add_trace(go.Scatter(x=aux.hours, y=[float(main[main['Name']=='Total']['Rate
                         name="Average {:,.2f} ilpns/hour".format(float(main[main['Name']=='Total']['Rates']))))
 
 layout =html.Div(
-    [   html.H1('Sorting Ambient '+reference[8:],style={'text-align':'center'}),
+    [   
+        html.H1('Sorting Ambient '+reference[8:],style={'text-align':'center'}),
         html.H2(id=reference+'time_update',children='',style={'text-align':'center'}),
         html.Div([
-            dash_table.DataTable(   id=reference+'results_table',
+           dash_table.DataTable(   id=reference+'results_table',
                                         columns=[{"name": i, "id": i} for i in results_table.columns],
                                         data=results_table.to_dict('records'),
                                         style_cell={'textAlign': 'center','whiteSpace': 'normal', 'textOverflow': 'ellipsis','font_size': '22px','fontWeight': 'bold'},
@@ -123,17 +126,17 @@ layout =html.Div(
                                                 } 
                                             ]
                                         ),
-                    ],style={'width':'70%'}),
+                    ]),
         html.Div(dcc.Dropdown(id=reference+'name_list',
                             options=[{'label': i, 'value': i} for i in main.Name],
                             value=main.Name[0],
                             placeholder='Select Sorter',
                             searchable=False,
-                            multi=False),style={'width': '28%', 'float': 'center', 'display': 'inline-block'}),
-        html.Div([
-                html.Div(dcc.Graph(id=reference+'rates_graph',figure=fig),className="one columns"),
-                html.Div(dcc.Graph(id=reference+'level_graph',figure=fig2),className="one columns")
-                ],className='row'),
+                            multi=False),style={'width': '20%'}),
+        dbc.Row([
+                dbc.Col(dcc.Graph(id=reference+'rates_graph',figure=fig),className="one columns"),
+                dbc.Col(dcc.Graph(id=reference+'level_graph',figure=fig2),className="one columns")
+                ]),
         html.Div(dcc.Interval(
             id=reference+'interval-main_table',
             interval=refreshing_time, # in milliseconds
@@ -146,7 +149,7 @@ layout =html.Div(
             id=reference+'interval_graph',
             interval=refreshing_time, # in milliseconds
             n_intervals=0)),
-                ])
+    ],style={'margin-left':'10%','margin-right':'10%'})
 
 
 @app.callback(
@@ -198,7 +201,6 @@ def update_results_table(n_intervals):
     data=results_table.to_dict('records')
     return data
 
-
 @app.callback(Output(reference+'name_list', 'options'),
               [Input(reference+'interval-main_table', 'n_intervals')])
 def update_dropbox(n_intervals):
@@ -207,7 +209,6 @@ def update_dropbox(n_intervals):
         main=pd.read_excel(file_name,sheet_name='main').round(2)
         options=[{'label': i, 'value': i} for i in main.Name]
         return options
-
 
 @app.callback(Output(reference+'level_graph', 'figure'),
         [Input(reference+'interval-main_table', 'n_intervals')])

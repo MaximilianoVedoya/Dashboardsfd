@@ -42,10 +42,11 @@ fig.add_trace(go.Scatter(x=aux.hours, y=[float(main[main['Name']=='Total']['Rate
                         name="Average {:,.2f} ilpns/hour".format(float(main[main['Name']=='Total']['Rates']))))
 
 layout =html.Div(
-    [   html.H1('Sorting Ambient '+reference[8:],style={'text-align':'center'}),
+    [   
+        html.H1('Sorting Ambient '+reference[8:],style={'text-align':'center'}),
         html.H2(id=reference+'time_update',children='',style={'text-align':'center'}),
         html.Div([
-            dash_table.DataTable(   id=reference+'results_table',
+           dash_table.DataTable(   id=reference+'results_table',
                                         columns=[{"name": i, "id": i} for i in results_table.columns],
                                         data=results_table.to_dict('records'),
                                         style_cell={'textAlign': 'center','whiteSpace': 'normal', 'textOverflow': 'ellipsis','font_size': '22px','fontWeight': 'bold'},
@@ -124,17 +125,17 @@ layout =html.Div(
                                                 } 
                                             ]
                                         ),
-                    ],style={'width':'70%'}),
+                    ]),
         html.Div(dcc.Dropdown(id=reference+'name_list',
                             options=[{'label': i, 'value': i} for i in main.Name],
                             value=main.Name[0],
                             placeholder='Select Sorter',
                             searchable=False,
-                            multi=False),style={'width': '28%', 'float': 'center', 'display': 'inline-block'}),
-        html.Div([
-                html.Div(dcc.Graph(id=reference+'rates_graph',figure=fig),className="one columns"),
-                html.Div(dcc.Graph(id=reference+'level_graph',figure=fig2),className="one columns")
-                ],className='row'),
+                            multi=False),style={'width': '20%'}),
+        dbc.Row([
+                dbc.Col(dcc.Graph(id=reference+'rates_graph',figure=fig),className="one columns"),
+                dbc.Col(dcc.Graph(id=reference+'level_graph',figure=fig2),className="one columns")
+                ]),
         html.Div(dcc.Interval(
             id=reference+'interval-main_table',
             interval=refreshing_time, # in milliseconds
@@ -147,7 +148,7 @@ layout =html.Div(
             id=reference+'interval_graph',
             interval=refreshing_time, # in milliseconds
             n_intervals=0)),
-                ])
+    ],style={'margin-left':'10%','margin-right':'10%'})
 
 @app.callback(
         Output(reference+'rates_graph', 'figure'),
