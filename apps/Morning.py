@@ -12,6 +12,7 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 from app import app
 from apps import functions as fx
+from app import dbc
 
 
 #shifts definition
@@ -50,8 +51,6 @@ temp=[main[main['Last Location']==location] for location in top_50]
 main_table_2=pd.concat(temp,axis=0).drop_duplicates().replace('nan',' ').sort_values('Rate',ascending=False)
 main_table_total=main[main['Last Location']=='---']
 
-
-
 fig=px.line(aux, x='Hour', y='Total', title='Total Performance curve')
 fig.add_trace(go.Scatter(x=aux.index, y=[float(main['Rate'].loc['Total']) for i in aux.index],
                         mode='lines',
@@ -59,9 +58,11 @@ fig.add_trace(go.Scatter(x=aux.index, y=[float(main['Rate'].loc['Total']) for i 
 fig2=fx.pulling_load_distribution(reference)
 
 layout =html.Div(
-    [   html.H1('Pulling Ambient '+reference,style={'text-align':'center'}),
+    [   
+        html.H1('Pulling Ambient '+reference,style={'text-align':'center'}),
         html.H2(id=reference+'time_update',children='',style={'text-align':'center'}),
-        html.Div([
+        html.Div(
+            [
 
                 dash_table.DataTable(   id=reference+'results_table',
                                         columns=[{"name": i, "id": i} for i in results_table.columns],
@@ -154,7 +155,7 @@ layout =html.Div(
                                                 } 
                                             ]
 
-                                        ),
+                                    ),
                 html.Br(),
                 dash_table.DataTable( id=reference+'main_table_2',
                                         columns=[{"name": i, "id": i} for i in main_table_2.columns],
@@ -280,18 +281,19 @@ layout =html.Div(
                                             ]
                                         ),
                 html.Br(),
-                ],style={'width':'70%'}),
+            ]),
         
-        html.Div(dcc.Dropdown(id=reference+'name_list',
+        html.Div([
+            dcc.Dropdown(id=reference+'name_list',
                             options=[{'label': i, 'value': i} for i in df.index],
                             value=df.index[0],
                             placeholder='Select Operator',
                             searchable=False,
-                            multi=False),style={'width': '28%', 'float': 'center', 'display': 'inline-block'}),
-        html.Div([
-            html.Div(dcc.Graph(id=reference+'rates_graph',figure=fig,className="one columns")),
-            html.Div(dcc.Graph(id=reference+'load_graph',figure=fig2,className="one columns")),
-            ],className='row'),
+                            multi=False)],style={'width':'20%'}),
+        dbc.Row([
+            dbc.Col(dcc.Graph(id=reference+'rates_graph',figure=fig)),
+            dbc.Col(dcc.Graph(id=reference+'load_graph',figure=fig2)),
+            ]),
 
         html.Div(dcc.Interval(
             id=reference+'interval-main_table',
@@ -305,7 +307,8 @@ layout =html.Div(
             id=reference+'interval_graph',
             interval=refreshing_time, # in milliseconds
             n_intervals=0))
-                ])
+
+    ],style={'margin-left':'10%','margin-right':'10%'})
 
 @app.callback(
         Output(reference+'rates_graph', 'figure'),
