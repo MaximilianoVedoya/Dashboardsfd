@@ -6,69 +6,76 @@ import numpy as np
 import dash
 import dash_table
 import dash_core_components as dcc
-import plotly.graph_objs as go
-import plotly.express as px
 import dash_html_components as html
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import plotly.express as px
-from apps import Afternoon, Morning,Night, functions as fx
 from app import app
-import re
 from app import dbc
+import dash_bootstrap_components as dbc
+from apps import functions as fx
 
-n_shift=Night.results_table
-m_shift=Morning.results_table
-a_shift=Afternoon.results_table
-date_=fx.date_reader()
-total= fx.summary(n_shift,m_shift,a_shift,date_)
-pulling_graph=fx.graphs(date_)[0]
-sorting_graph=fx.graphs(date_)[1]
-def layout():
-        return (
-                html.Div(dcc.DatePickerSingle(id='my-date-picker-single',
-                                              min_date_allowed=datetime.datetime(2020,7,12),
-                                              max_date_allowed=datetime.date.today()-datetime.timedelta(days=0),
-                                              initial_visible_month=datetime.date.today(),
-                                              date=str(datetime.date.today())
-                                              )),
-                html.H1('Summary',style={'float': 'center','text-align':'center'},id='summary'),
-                dcc.Interval(id='interval-data',
-                            interval=5*60*1000, # in milliseconds
-                            n_intervals=0),
-                html.Div([    
-                    dcc.Graph(id='Pulling_graph',figure=pulling_graph),
-                    dcc.Graph(id='Sorting_graph',figure=sorting_graph)
+reference='summary'
+refreshing_time=1*60*1000 #millisecods
+input_date=datetime.date.today()
+
+summary=fx.summary_get_main(input_date)
+
+
+def layout ():
+    return (
+            html.Div(
+                [   
+                    html.H1('Summary',style={'text-align':'center'}),
+                    html.H2(id=reference+'time_update',children='',style={'text-align':'center'}),
+                    html.Div(
+                        [
+                            html.Div(dcc.DatePickerSingle(id=reference+'my-date-picker-single',
+                                                        min_date_allowed=datetime.datetime(2020,8,4),
+                                                        max_date_allowed=datetime.date.today(),
+                                                        initial_visible_month=datetime.date.today(),
+                                                        date=str(datetime.date.today())
+                                                        )),
+                            dash_table.DataTable(   id=reference+'summary_table',
+                                                    columns=[{"name": i, "id": i} for i in summary.columns],
+                                                    data=summary.to_dict('records'),
+                                                    style_cell={'textAlign': 'center','whiteSpace': 'normal', 'textOverflow': 'ellipsis','font_size': '22px','fontWeight': 'bold'},
+                                                    style_data_conditional=
+                                                            [
+                                                                {
+                                                                    'if': 
+                                                                    {
+                                                                        'filter_query': '{Difference} < 0',
+                                                                        'column_id': ['Difference','Net Results','Expected Results']
+                                                                    },
+                                                                    'backgroundColor': 'tomato',
+                                                                    'color': 'white'
+                                                                }
+                                                            ]
+                                                            +
+                                                            [
+                                                                {
+                                                                    'if': 
+                                                                    {
+                                                                        'filter_query': '{Difference} >= 0',
+                                                                        'column_id': ['Difference','Net Results','Expected Results']
+                                                                    },
+                                                                    'backgroundColor': 'green',
+                                                                    'color': 'white'
+                                                                }
+                                                            ]
+                                                )
+                        ]),
+                    html.Div(dcc.Interval(
+                        id=reference+'interval-tables',
+                        interval=refreshing_time, # in milliseconds
+                        n_intervals=0)),
+                    
                 ],style={'margin-left':'10%','margin-right':'10%'})
-                )
+            )
 
-
-@app.callback(Output('summary', 'children'),
-    [Input('my-date-picker-single', 'date')])
-
-def save_date(date):
-        def save_object(obj, filename):
-            import pickle
-            with open(filename, 'wb') as output:  # Overwrites any existing file.
-                pickle.dump(obj, output, pickle.HIGHEST_PROTOCOL)
-        save_object(date,'date.pckl')
-    
-@app.callback(Output('date-picker', 'children'),
-    [Input('my-date-picker-single', 'date')])
-
-def update_date(date):
-    return str(date)[5:10]
-
-@app.callback(Output('Pulling_graph', 'figure'),
-    [Input('my-date-picker-single', 'date')])
-
-def update_pulling_graph(date):
-    date_=fx.date_reader()
-    return fx.graphs(date_)[0]
-
-@app.callback(Output('Sorting_graph', 'figure'),
-    [Input('my-date-picker-single', 'date')])
-
-def update_pulling_graph(date):
-    date_=fx.date_reader()
-    return fx.graphs(date_)[1]
-
+@app.callback(Output(reference+'summary_table', 'data'),
+    [Input(reference+'my-date-picker-single', 'date'),Input(reference+'interval-tables', 'n_intervals')])
+def table_date_retriever(date,n_intervals):
+    summary=fx.summary_get_main(date)
+    data=summary.to_dict('records')
+    return data
